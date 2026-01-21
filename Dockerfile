@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-jammy
 # 使用官方的JDK 17 环境运行
 
 WORKDIR /app
