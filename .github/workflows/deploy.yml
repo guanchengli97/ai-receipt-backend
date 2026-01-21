@@ -66,35 +66,35 @@ jobs:
   #         # 运行新容器
   #         docker run -d --name ai-receipt-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
   deploy:
-  needs: build
-  runs-on: ubuntu-latest
-  steps:
-    - name: Deploy to Oracle Host
-      uses: appleboy/ssh-action@v1.0.3
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      with:
-        host: ${{ secrets.ORACLE_HOST }}
-        username: ${{ secrets.ORACLE_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SSH_PORT || 22 }}
-        script: |
-          set -e
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Oracle Host
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
 
-          USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
-          IMAGE="docker.io/${USERNAME}/ai-receipt-backend:latest"
+            USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
+            IMAGE="docker.io/${USERNAME}/ai-receipt-backend:latest"
 
-          # 登录 Docker Hub（如果是 private 镜像需要；public 镜像可删掉这一段）
-          echo "$DOCKER_PASSWORD" | docker login docker.io -u "$USERNAME" --password-stdin
+            # 登录 Docker Hub（如果是 private 镜像需要；public 镜像可删掉这一段）
+            echo "$DOCKER_PASSWORD" | docker login docker.io -u "$USERNAME" --password-stdin
 
-          docker pull "$IMAGE"
+            docker pull "$IMAGE"
 
-          docker stop ai-receipt-app || true
-          docker rm ai-receipt-app || true
+            docker stop ai-receipt-app || true
+            docker rm ai-receipt-app || true
 
-          docker run -d \
-            --name ai-receipt-app \
-            --restart unless-stopped \
-            -p 8080:8080 \
-            "$IMAGE"
+            docker run -d \
+              --name ai-receipt-app \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              "$IMAGE"
