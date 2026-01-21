@@ -71,23 +71,23 @@ jobs:
     steps:
       - name: Deploy to Oracle Host
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD
           script: |
             set -e
-
             USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
+            if [ -z "$USERNAME" ]; then
+              echo "DOCKER_USERNAME is empty on remote."
+              exit 1
+            fi
+
             IMAGE="docker.io/${USERNAME}/ai-receipt-backend:latest"
 
-            # 登录 Docker Hub（如果是 private 镜像需要；public 镜像可删掉这一段）
-            echo "$DOCKER_PASSWORD" | docker login docker.io -u "$USERNAME" --password-stdin
-
+            echo "$DOCKER_PASSWORD" | docker login docker.io --username "$USERNAME" --password-stdin
             docker pull "$IMAGE"
 
             docker stop ai-receipt-app || true
@@ -98,3 +98,7 @@ jobs:
               --restart unless-stopped \
               -p 8080:8080 \
               "$IMAGE"
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
