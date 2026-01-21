@@ -43,25 +43,58 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
 
-    steps:
+  #   steps:
+  #   - name: Deploy to Oracle Host
+  #     uses: appleboy/ssh-action@v1.0.3
+  #     with:
+  #       host: ${{ secrets.ORACLE_HOST }} #这些变量都可以直接存在相应的GitHub里，不需要写在代码里
+  #       username: ${{ secrets.ORACLE_USERNAME }}
+  #       key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #       port: ${{ secrets.SSH_PORT || 22 }}
+  #       script: |
+  #         # 登录Docker Hub（如果需要）
+  #         echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+  #         # 拉取最新镜像
+  #         docker pull ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
+  #         # 停止并删除旧容器（如果存在）
+  #         docker stop ai-receipt-app || true
+  #         docker rm ai-receipt-app || true
+  #         # 运行新容器
+  #         docker run -d --name ai-receipt-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
+  deploy:
+  needs: build
+  runs-on: ubuntu-latest
+  steps:
     - name: Deploy to Oracle Host
       uses: appleboy/ssh-action@v1.0.3
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       with:
-        host: ${{ secrets.ORACLE_HOST }} #这些变量都可以直接存在相应的GitHub里，不需要写在代码里
+        host: ${{ secrets.ORACLE_HOST }}
         username: ${{ secrets.ORACLE_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || 22 }}
         script: |
-          # 登录Docker Hub（如果需要）
-          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          # 拉取最新镜像
-          docker pull ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
-          # 停止并删除旧容器（如果存在）
+          set -e
+
+          USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
+          IMAGE="docker.io/${USERNAME}/ai-receipt-backend:latest"
+
+          # 登录 Docker Hub（如果是 private 镜像需要；public 镜像可删掉这一段）
+          echo "$DOCKER_PASSWORD" | docker login docker.io -u "$USERNAME" --password-stdin
+
+          docker pull "$IMAGE"
+
           docker stop ai-receipt-app || true
           docker rm ai-receipt-app || true
-          # 运行新容器
-          docker run -d --name ai-receipt-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
+
+          docker run -d \
+            --name ai-receipt-app \
+            --restart unless-stopped \
+            -p 8080:8080 \
+            "$IMAGE"
