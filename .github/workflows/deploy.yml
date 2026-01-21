@@ -96,7 +96,7 @@ jobs:
             docker run -d \
               --name ai-receipt-app \
               --restart unless-stopped \
-              -p 8080:8080 \
+              -p 7008:8080 \
               "$IMAGE"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
