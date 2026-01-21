@@ -1,4 +1,4 @@
-FROM openjdk:17-jre-slim 
+FROM eclipse-temurin:17-jre-alpine
 # 使用官方的JDK 17 环境运行
 
 WORKDIR /app
