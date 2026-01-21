@@ -16,8 +16,8 @@ public class HealthController {
         response.put("status", "ok");
         response.put("message", "AI Receipt Backend is running");
         response.put("endpoints", new String[]{
-                "POST /auth/login - 登录获取 JWT token",
-                "GET /api/health - 健康检查"
+                "POST /auth/login - login JWT token",
+                "GET /api/health - health check"
         });
         return ResponseEntity.ok(response);
     }
