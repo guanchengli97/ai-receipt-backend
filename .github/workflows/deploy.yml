@@ -1,0 +1,67 @@
+# 当你 push 到 main 分支 → GitHub Actions 在临时虚拟机中构建 Java 项目 → 打包成 Docker 镜像 → 推送到 Docker Hub → SSH 登录 Oracle 云服务器 → 拉最新镜像并重启容器
+# 在GitHub action的临时虚拟机中，完成的是构建Java项目， 打包成镜像，上传到docker hub， ssh登录到oracle服务器，拉取上传的镜像，重启服务
+name: CI/CD Pipeline with Docker
+
+# 触发条件
+on:
+  push:
+    branches:
+      - main  # 或者你的主分支名称
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }} # github 有相应的存储这些变量的地方
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 而 Docker 的默认行为是：
+      # 在 context 目录中查找 Dockerfile
+      # 文件名必须是 Dockerfile
+      # 如果找不到 → 直接失败
+      # 这个构建镜像的过程，就是在GitHub action的临时虚拟机里完成的。
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to Oracle Host
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.ORACLE_HOST }} #这些变量都可以直接存在相应的GitHub里，不需要写在代码里
+        username: ${{ secrets.ORACLE_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT || 22 }}
+        script: |
+          # 登录Docker Hub（如果需要）
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          # 拉取最新镜像
+          docker pull ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
+          # 停止并删除旧容器（如果存在）
+          docker stop ai-receipt-app || true
+          docker rm ai-receipt-app || true
+          # 运行新容器
+          docker run -d --name ai-receipt-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/ai-receipt-backend:latest
