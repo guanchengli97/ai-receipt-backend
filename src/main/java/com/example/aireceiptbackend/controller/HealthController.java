@@ -10,7 +10,7 @@ import java.util.Map;
 @RestController
 public class HealthController {
 
-    @GetMapping("/")
+    @GetMapping("/")//这个是http://129.146.109.30:7008/api/
     public ResponseEntity<?> home() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "ok");
@@ -22,7 +22,7 @@ public class HealthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/api/health")
+    @GetMapping("/api/health") //默认是带有api的，就是说这个的地址是http://129.146.109.30:7008/api/api/health
     public ResponseEntity<?> health() {
         Map<String, String> response = new HashMap<>();
         response.put("status", "healthy");

@@ -14,3 +14,5 @@
   roles:
     - role: mysql # 一整套可复用的自动化安装方案,看到这就会找到roles/mysql/tasks/main.yml
       tags: mysql # 方便命令行指定执行某个标签的任务, 开关过滤器
+
+- import_playbook: init-database.yml
