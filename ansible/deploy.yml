@@ -1,0 +1,15 @@
+---
+# Ansible Playbook for deploying MySQL Database
+# This playbook installs and configures MySQL for AI Receipt Backend
+
+- name: Deploy MySQL Database
+  hosts: all
+  gather_facts: yes
+  
+  vars_files:
+    - vars/vault.yml  # Contains sensitive data (encrypted)
+    - vars/main.yml   # Contains general variables
+
+  roles:
+    - role: mysql # 一整套可复用的自动化安装方案,看到这就会找到roles/mysql/tasks/main.yml
+      tags: mysql # 方便命令行指定执行某个标签的任务, 开关过滤器

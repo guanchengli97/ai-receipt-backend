@@ -1,0 +1,71 @@
+# 示例：hosts.ini 配置文件
+
+# ============================================================
+# 本地部署示例（开发环境）
+# ============================================================
+[local]
+localhost ansible_connection=local
+
+# ============================================================
+# 单个远程服务器示例
+# ============================================================
+[production]
+# 通过 IP 地址连接
+# prod-server ansible_host=192.168.1.100 \
+#     ansible_user=ubuntu \
+#     ansible_ssh_private_key_file=~/.ssh/prod_key.pem \
+#     ansible_port=22
+
+# 通过域名连接
+# prod-server ansible_host=api.example.com \
+#     ansible_user=deploy \
+#     ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# ============================================================
+# 多服务器集群示例
+# ============================================================
+[webservers]
+# web-server-1 ansible_host=192.168.1.10 ansible_user=ubuntu
+# web-server-2 ansible_host=192.168.1.11 ansible_user=ubuntu
+# web-server-3 ansible_host=192.168.1.12 ansible_user=ubuntu
+
+# ============================================================
+# 数据库服务器
+# ============================================================
+[dbservers]
+# db-server-1 ansible_host=192.168.1.20 ansible_user=ubuntu
+
+# ============================================================
+# 全局变量
+# ============================================================
+[all:vars]
+# Python 解释器路径
+ansible_python_interpreter=/usr/bin/python3
+
+# SSH 连接超时
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+# 从代理主机连接（如果需要跳跃主机）
+# ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p jumphost@bastion.example.com"'
+
+# ============================================================
+# 生产环境高级配置示例
+# ============================================================
+# [production:vars]
+# # 仅部署 MySQL（不部署应用）
+# deployment_target=mysql
+# 
+# # 自定义数据库配置
+# db_host=db.example.com
+# db_port=3306
+# db_name=prod_receipt_db
+# 
+# # 应用配置
+# app_home=/opt/ai-receipt-backend
+# java_heap_min=1024m
+# java_heap_max=2048m
+# 
+# # 连接配置
+# ansible_user=deploy
+# ansible_become_user=root
+# ansible_become_method=sudo

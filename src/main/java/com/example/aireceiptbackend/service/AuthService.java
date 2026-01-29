@@ -30,4 +30,21 @@ public class AuthService {
         if (!passwordEncoder.matches(password, encoded)) return null;
         return JwtUtil.generateToken(username);
     }
+
+    public boolean register(String username, String password) {
+        // Check if user already exists
+        if (users.containsKey(username)) {
+            return false; // User already exists
+        }
+        
+        // Validate username and password
+        if (username == null || username.trim().isEmpty() || 
+            password == null || password.trim().isEmpty()) {
+            return false; // Invalid username or password
+        }
+        
+        // Store the new user with encoded password
+        users.put(username, passwordEncoder.encode(password));
+        return true;
+    }
 }

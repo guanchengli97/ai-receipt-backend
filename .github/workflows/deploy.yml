@@ -84,7 +84,7 @@ jobs:
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET
           script: |
             set -e
             USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
@@ -101,12 +101,21 @@ jobs:
             docker stop ai-receipt-app || true
             docker rm ai-receipt-app || true
 
+            # 获取主机IP（用于容器内连接到主机上的 MySQL）
+            HOST_IP=$(hostname -I | awk '{print $1}')
+
             docker run -d \
               --name ai-receipt-app \
               --restart unless-stopped \
               -p 7008:8080 \
+              -e SPRING_DATASOURCE_URL="jdbc:mysql://${HOST_IP}:3306/ai_receipt_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" \
+              -e SPRING_DATASOURCE_USERNAME="receipt_user" \
+              -e SPRING_DATASOURCE_PASSWORD="${DB_PASSWORD}" \
+              -e JWT_SECRET="${JWT_SECRET}" \
               "$IMAGE"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
 

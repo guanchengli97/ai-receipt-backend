@@ -1,0 +1,25 @@
+---
+# Variables for AI Receipt Backend deployment
+# This file contains non-sensitive configuration
+
+db_host: "localhost"
+db_port: 3306
+db_name: "ai_receipt_db"
+db_user: "receipt_user"
+
+app_name: "ai-receipt-backend"
+app_version: "0.0.1-SNAPSHOT"
+app_home: "/opt/ai-receipt-backend"
+app_user: "appuser"
+app_group: "appgroup"
+
+# Java heap settings
+java_heap_min: "512m"
+java_heap_max: "1024m"
+
+# Server settings
+server_port: 8080
+server_context_path: "/api"
+
+# JWT settings
+jwt_expiration: 86400000  # 24 hours in milliseconds

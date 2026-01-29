@@ -1,0 +1,89 @@
+name: Deploy Ansible MySQL
+# github action上的调用ansible的入口
+# 触发条件
+on:
+  # 手动触发（按钮）
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deployment target'
+        required: true
+        default: 'mysql'
+        type: choice
+        options:
+          - mysql
+
+  # 自动触发（可选）
+  # push:
+  #   branches:
+  #     - master
+  #     - deploy/*
+  #   paths:
+  #     - 'ansible/**'
+  #     - '.github/workflows/ansible-deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Verify Ansible installation
+        run: ansible --version
+
+      # 方式 1：如果 Secrets 中存储了私钥，使用 SSH
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Create Ansible inventory
+        run: |
+          mkdir -p ansible/inventory
+          cat > ansible/inventory/hosts.ini << EOF
+          [webservers]
+          oracle-prod ansible_host=${{ secrets.ORACLE_HOST }} ansible_user=${{ secrets.ORACLE_USERNAME }} ansible_ssh_private_key_file=~/.ssh/id_rsa
+          
+          [all:vars]
+          ansible_python_interpreter=/usr/bin/python3
+          EOF
+
+      - name: Create Ansible vault password file
+        run: |
+          echo "${{ secrets.VAULT_PASSWORD }}" > ~/.vault-pass
+          chmod 600 ~/.vault-pass
+
+      - name: Deploy MySQL with Ansible
+      #找到下一个文件执行入口
+        run: |
+          cd ansible
+          ansible-playbook deploy.yml \ 
+            -i inventory/hosts.ini \
+            --vault-password-file=~/.vault-pass \
+            -v
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f ~/.vault-pass
+          rm -f ansible/inventory/hosts.ini
+
+      - name: Deployment Success
+        if: success()
+        run: echo "✅ Ansible deployment completed successfully"
+
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "❌ Ansible deployment failed"
+          exit 1

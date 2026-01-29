@@ -1,0 +1,94 @@
+---
+- name: Install MySQL and configure database
+  hosts: "{{ target_hosts | default('all') }}"
+  become: yes # 提权为root用户执行任务
+  vars:
+    mysql_root_password: "{{ vault_mysql_root_password }}"
+    db_name: "ai_receipt_db"
+    db_user: "receipt_user"
+    db_password: "{{ vault_db_password }}"
+    db_port: 3306
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600 #一个小时内不重复更新，节省时间
+      when: ansible_os_family == "Debian" # 仅在Debian系系统上执行，Debian / Ubuntu 系统时，这个 task 才会执行。RedHat / CentOS / Oracle Linux，就直接跳过
+
+    - name: Install MySQL server and client
+      apt:
+        name:
+          - mysql-server
+          - mysql-client
+          - python3-pymysql
+        state: present # 幂等，确保安装，逻辑就是，如果已存在，就跳过，如果不存在就执行这个
+      when: ansible_os_family == "Debian"
+
+    - name: Install MySQL server (RedHat/CentOS)
+      yum:
+        name:
+          - mysql-server
+          - mysql
+          - python3-pymysql
+        state: present
+      when: ansible_os_family == "RedHat"
+      # ansible并不是自己找的这些安装包，还是交给了包管理器去找和安装sudo yum install -y mysql-server mysql python3-pymysql
+
+    - name: Start and enable MySQL service
+      systemd:
+        name: mysql
+        state: started
+        enabled: yes
+        # sudo systemctl start mysql
+        # sudo systemctl enable mysql
+
+
+    - name: Wait for MySQL to start
+      pause:
+        seconds: 5
+
+    # 连接数据库服务直接进行操作的 
+    - name: Create MySQL database
+      mysql_db: #固定的模块名称，不能更改，用来操作MySQL数据库，是内化在ansible里的，类似的比如说有apt,yum, systemd之类的模块
+        name: "{{ db_name }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock #MySQL服务启动的时候，由MySQL自己创建的，只有MySQL进程运行时，才会存在，用于同一台机器上进行通信
+
+    - name: Create MySQL user
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        host: "localhost"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Create MySQL user for remote access (if needed)
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        host: "%"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Flush privileges
+      mysql_query:
+        login_db: mysql
+        query: "FLUSH PRIVILEGES"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Configure MySQL for remote access
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: "^bind-address"
+        line: "bind-address = 0.0.0.0"
+        state: present
+      notify: restart mysql
+
+  handlers:
+    - name: restart mysql
+      systemd:
+        name: mysql
+        state: restarted

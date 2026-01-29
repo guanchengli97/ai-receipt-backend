@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: ai-receipt-backend
+  datasource:
+    url: jdbc:mysql://{{ db_host }}:{{ db_port }}/{{ db_name }}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: {{ db_user }}
+    password: {{ db_password }}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+jwt:
+  secret: {{ jwt_secret }}
+  expiration: 86400000
