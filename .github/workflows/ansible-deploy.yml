@@ -63,10 +63,10 @@ jobs:
           chmod 600 ~/.vault-pass
 
       - name: Deploy MySQL with Ansible
-      #找到下一个文件执行入口
         run: |
           cd ansible
-          ansible-playbook deploy.yml \ 
+          echo "Listing ansible directory:" && ls -la
+          ansible-playbook deploy.yml \
             -i inventory/hosts.ini \
             --vault-password-file=~/.vault-pass \
             -v
