@@ -6,6 +6,10 @@ db_host: "localhost"
 db_port: 3306
 db_name: "ai_receipt_db"
 db_user: "receipt_user"
+# Map vault secret to standard variable used by roles and templates
+# `vault_db_password` is stored in `vars/vault.yml` (encrypted)
+# This exposes it as `db_password` so playbooks/templates can reference it uniformly
+db_password: "{{ vault_db_password | default('') }}"
 
 app_name: "ai-receipt-backend"
 app_version: "0.0.1-SNAPSHOT"
