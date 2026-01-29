@@ -101,14 +101,15 @@ jobs:
             docker stop ai-receipt-app || true
             docker rm ai-receipt-app || true
 
-            # 获取主机IP（用于容器内连接到主机上的 MySQL）
-            HOST_IP=$(hostname -I | awk '{print $1}')
+            # Use host.docker.internal (mapped to host-gateway) so container can reach host MySQL reliably
+            # NOTE: Docker on Linux supports 'host-gateway' mapping; this avoids hostname/IP routing issues from bridge networks
 
             docker run -d \
               --name ai-receipt-app \
               --restart unless-stopped \
+              --add-host=host.docker.internal:host-gateway \
               -p 7008:8080 \
-              -e SPRING_DATASOURCE_URL="jdbc:mysql://${HOST_IP}:3306/ai_receipt_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" \
+              -e SPRING_DATASOURCE_URL="jdbc:mysql://host.docker.internal:3306/ai_receipt_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" \
               -e SPRING_DATASOURCE_USERNAME="receipt_user" \
               -e SPRING_DATASOURCE_PASSWORD="${DB_PASSWORD}" \
               -e JWT_SECRET="${JWT_SECRET}" \
