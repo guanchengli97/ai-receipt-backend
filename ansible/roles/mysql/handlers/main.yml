@@ -1,5 +1,5 @@
 ---
 - name: restart mysql
   systemd:
-    name: mysql
+    name: "{{ 'mysql' if ansible_facts['os_family'] == 'Debian' else 'mysqld' }}"
     state: restarted

@@ -30,21 +30,34 @@
     state: present
   when: ansible_facts['os_family'] == "RedHat"
 
-- name: Start and enable MySQL service
+- name: Start and enable MySQL service (Debian)
   systemd:
     name: mysql
     state: started
     enabled: yes
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Start and enable MySQL service (RedHat/CentOS)
+  systemd:
+    name: mysqld
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == "RedHat"
 
 - name: Wait for MySQL to start
   pause:
     seconds: 5
 
+- name: Set MySQL socket path and config path for OS
+  set_fact:
+    mysql_socket_path: "{{ '/var/run/mysqld/mysqld.sock' if ansible_facts['os_family'] == 'Debian' else '/var/lib/mysql/mysql.sock' }}"
+    mysql_config_path: "{{ '/etc/mysql/mysql.conf.d/mysqld.cnf' if ansible_facts['os_family'] == 'Debian' else '/etc/my.cnf' }}"
+
 - name: Create MySQL database
   mysql_db:
     name: "{{ db_name }}"
     state: present
-    login_unix_socket: /var/run/mysqld/mysqld.sock
+    login_unix_socket: "{{ mysql_socket_path }}"
 
 - name: Create MySQL user
   mysql_user:
@@ -53,7 +66,7 @@
     priv: "{{ db_name }}.*:ALL"
     host: "localhost"
     state: present
-    login_unix_socket: /var/run/mysqld/mysqld.sock
+    login_unix_socket: "{{ mysql_socket_path }}"
 
 - name: Create MySQL user for remote access (if needed)
   mysql_user:
@@ -62,18 +75,28 @@
     priv: "{{ db_name }}.*:ALL"
     host: "%"
     state: present
-    login_unix_socket: /var/run/mysqld/mysqld.sock
+    login_unix_socket: "{{ mysql_socket_path }}"
 
 - name: Flush privileges
   mysql_query:
     login_db: mysql
     query: "FLUSH PRIVILEGES"
-    login_unix_socket: /var/run/mysqld/mysqld.sock
+    login_unix_socket: "{{ mysql_socket_path }}"
 
-- name: Configure MySQL for remote access
+- name: Configure MySQL for remote access (Debian)
   lineinfile:
     path: /etc/mysql/mysql.conf.d/mysqld.cnf
     regexp: "^bind-address"
     line: "bind-address = 0.0.0.0"
     state: present
+  when: ansible_facts['os_family'] == "Debian"
+  notify: restart mysql
+
+- name: Configure MySQL for remote access (RedHat/CentOS)
+  lineinfile:
+    path: /etc/my.cnf
+    regexp: "^bind-address"
+    line: "bind-address = 0.0.0.0"
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
   notify: restart mysql
