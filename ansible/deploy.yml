@@ -4,6 +4,7 @@
 
 - name: Deploy MySQL Database
   hosts: all
+  become: yes
   gather_facts: yes
   
   vars_files:

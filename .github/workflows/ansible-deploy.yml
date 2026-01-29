@@ -55,6 +55,9 @@ jobs:
           
           [all:vars]
           ansible_python_interpreter=/usr/bin/python3
+          ansible_become=true
+          ansible_become_method=sudo
+          ansible_become_user=root
           EOF
 
       - name: Create Ansible vault password file
@@ -69,6 +72,7 @@ jobs:
           ansible-playbook deploy.yml \
             -i inventory/hosts.ini \
             --vault-password-file=~/.vault-pass \
+            --become \
             -v
 
       - name: Cleanup sensitive files
