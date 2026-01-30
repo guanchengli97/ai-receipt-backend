@@ -19,4 +19,16 @@ public class JwtUtil {
                 .signWith(SignatureAlgorithm.HS256, SECRET)
                 .compact();
     }
+
+    public static String getSubjectFromToken(String token) {
+        try {
+            return Jwts.parser()
+                    .setSigningKey(SECRET)
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

@@ -1,50 +1,62 @@
 package com.example.aireceiptbackend.service;
 
+import com.example.aireceiptbackend.model.User;
+import com.example.aireceiptbackend.repository.UserRepository;
 import com.example.aireceiptbackend.util.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AuthService {
 
     private final PasswordEncoder passwordEncoder;
-    private final Map<String, String> users = new HashMap<>(); // username -> encoded password
+    private final UserRepository userRepository;
 
-    public AuthService(PasswordEncoder passwordEncoder) {
+    public AuthService(PasswordEncoder passwordEncoder, UserRepository userRepository) {
         this.passwordEncoder = passwordEncoder;
-    }
-
-    @PostConstruct
-    public void init() {
-        // Create a demo user: username=user, password=password
-        users.put("user", passwordEncoder.encode("password"));
+        this.userRepository = userRepository;
     }
 
     public String login(String username, String password) {
-        if (!users.containsKey(username)) return null;
-        String encoded = users.get(username);
-        if (!passwordEncoder.matches(password, encoded)) return null;
+        if (username == null || username.trim().isEmpty() ||
+            password == null || password.trim().isEmpty()) {
+            return null;
+        }
+
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return null;
+        }
+
+        User user = userOpt.get();
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            return null;
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            return null;
+        }
         return JwtUtil.generateToken(username);
     }
 
     public boolean register(String username, String password) {
-        // Check if user already exists
-        if (users.containsKey(username)) {
-            return false; // User already exists
-        }
-        
         // Validate username and password
         if (username == null || username.trim().isEmpty() || 
             password == null || password.trim().isEmpty()) {
             return false; // Invalid username or password
         }
+
+        // Check if user already exists
+        if (userRepository.existsByUsername(username)) {
+            return false; // User already exists
+        }
         
         // Store the new user with encoded password
-        users.put(username, passwordEncoder.encode(password));
+        String email = username + "@local";
+        User user = new User(username, email, passwordEncoder.encode(password));
+        userRepository.save(user);
         return true;
     }
 }
