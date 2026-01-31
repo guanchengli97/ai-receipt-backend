@@ -84,7 +84,7 @@ jobs:
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET,GEMINI_API_KEY
           script: |
             set -e
             USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
