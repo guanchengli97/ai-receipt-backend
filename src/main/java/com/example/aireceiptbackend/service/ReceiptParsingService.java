@@ -37,7 +37,7 @@ public class ReceiptParsingService {
         ObjectMapper objectMapper,
         UserRepository userRepository,
         ReceiptRepository receiptRepository,
-        @Value("${gemini.api-key}") String apiKey,
+        @Value("${gemini.api-key:}") String apiKey,
         @Value("${gemini.api-base:https://generativelanguage.googleapis.com}") String apiBase,
         @Value("${gemini.model:gemini-2.5-flash-lite}") String model
     ) {
@@ -51,6 +51,9 @@ public class ReceiptParsingService {
     }
 
     public ReceiptParseResponse parseAndSaveFromUrl(String imageUrl, String username) throws IOException {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new IllegalStateException("Gemini API key is not configured");
+        }
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
             throw new IllegalArgumentException("Image URL is required");
         }
