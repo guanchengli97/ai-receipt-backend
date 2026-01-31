@@ -113,10 +113,12 @@ jobs:
               -e SPRING_DATASOURCE_USERNAME="receipt_user" \
               -e SPRING_DATASOURCE_PASSWORD="${DB_PASSWORD}" \
               -e JWT_SECRET="${JWT_SECRET}" \
+              -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
               "$IMAGE"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
