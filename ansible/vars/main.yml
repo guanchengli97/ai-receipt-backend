@@ -27,3 +27,6 @@ server_context_path: "/api"
 
 # JWT settings
 jwt_expiration: 86400000  # 24 hours in milliseconds
+
+# Gemini settings
+gemini_api_key: "{{ vault_gemini_api_key | default('') }}"
