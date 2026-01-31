@@ -25,7 +25,8 @@ jwt:
   expiration: 86400000
 
 gemini:
-  api-key: {{ gemini_api_key }}
+  # api-key: {{ gemini_api_key }}
+  api-key: "AIzaSyDwJ2NYIoUZNnmvrvowyzky6WBEDkYJ93I"
   api-base: "https://generativelanguage.googleapis.com"
   model: "gemini-2.5-flash-lite"
   timeout-ms: 20000
