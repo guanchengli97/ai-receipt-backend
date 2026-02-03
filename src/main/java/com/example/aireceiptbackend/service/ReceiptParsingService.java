@@ -105,6 +105,32 @@ public class ReceiptParsingService {
         return toResponse(saved);
     }
 
+    public List<ReceiptParseResponse> getReceiptsByUserEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("User email is required");
+        }
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new IllegalArgumentException("User not found for email: " + email));
+
+        List<Receipt> receipts = receiptRepository.findByUser(user);
+        receipts.sort(
+            Comparator.comparing(
+                Receipt::getCreatedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())
+            ).thenComparing(
+                Receipt::getId,
+                Comparator.nullsLast(Comparator.reverseOrder())
+            )
+        );
+
+        List<ReceiptParseResponse> responses = new ArrayList<>();
+        for (Receipt receipt : receipts) {
+            responses.add(toResponse(receipt));
+        }
+        return responses;
+    }
+
     private Map<String, Object> buildRequestBody(String prompt, String mimeType, String base64) {
         Map<String, Object> inlineData = new HashMap<>();
         inlineData.put("mime_type", mimeType);
