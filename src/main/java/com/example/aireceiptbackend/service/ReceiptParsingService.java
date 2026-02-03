@@ -98,6 +98,7 @@ public class ReceiptParsingService {
 
         ReceiptExtraction extraction = parseExtraction(response.getBody());
         Receipt receipt = mapToReceipt(extraction, user);
+        receipt.setImageUrl(imageUrl);
         receipt.setRawJson(extraction != null ? safeToJson(extraction) : null);
         Receipt saved = receiptRepository.save(receipt);
 
@@ -216,6 +217,7 @@ public class ReceiptParsingService {
         response.setMerchantName(receipt.getMerchantName());
         response.setReceiptDate(receipt.getReceiptDate());
         response.setCurrency(receipt.getCurrency());
+        response.setImageUrl(receipt.getImageUrl());
         response.setSubtotal(receipt.getSubtotalAmount());
         response.setTax(receipt.getTaxAmount());
         response.setTotal(receipt.getTotalAmount());

@@ -28,6 +28,9 @@ public class Receipt {
     @Column(name = "currency", length = 8)
     private String currency;
 
+    @Column(name = "image_url", length = 2048)
+    private String imageUrl;
+
     @Column(name = "subtotal_amount", precision = 12, scale = 2)
     private BigDecimal subtotalAmount;
 
@@ -99,6 +102,14 @@ public class Receipt {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public BigDecimal getSubtotalAmount() {

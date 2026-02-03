@@ -9,6 +9,7 @@ public class ReceiptParseResponse {
     private String merchantName;
     private LocalDate receiptDate;
     private String currency;
+    private String imageUrl;
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal total;
@@ -44,6 +45,14 @@ public class ReceiptParseResponse {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public BigDecimal getSubtotal() {
