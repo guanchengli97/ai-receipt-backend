@@ -59,9 +59,9 @@ public class ReceiptParsingService {
         }
         URI uri = parseUri(imageUrl);
         validateHttpUrl(uri);
-
+        
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new IllegalArgumentException("User not found for email: " + email));
 
         ResponseEntity<byte[]> imageResponse;
         try {
