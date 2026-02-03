@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     List<Receipt> findByUser(User user);
+    List<Receipt> findByUserEmailOrderByCreatedAtDesc(String email);
+    List<Receipt> findByUserUsernameOrderByCreatedAtDesc(String username);
 }
