@@ -22,7 +22,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest req) {
-        String token = authService.login(req.getUsername(), req.getPassword());
+        String token = authService.login(req.getEmail(), req.getPassword());
         if (token == null) {
             return ResponseEntity.status(401).build();
         }
@@ -31,19 +31,26 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@RequestBody AuthRequest req) {
-        // Validate input
-        if (req.getUsername() == null || req.getUsername().trim().isEmpty() ||
-            req.getPassword() == null || req.getPassword().trim().isEmpty()) {
+        String name = req.getName();
+        if (name == null || name.trim().isEmpty()) {
+            name = req.getUsername();
+        }
+        String email = req.getEmail();
+        String password = req.getPassword();
+
+        if (name == null || name.trim().isEmpty() ||
+            email == null || email.trim().isEmpty() ||
+            password == null || password.trim().isEmpty()) {
             return ResponseEntity.badRequest()
-                .body(new RegisterResponse(false, "Username and password are required"));
+                .body(new RegisterResponse(false, "Name, email, and password are required"));
         }
 
-        boolean success = authService.register(req.getUsername(), req.getPassword());
+        boolean success = authService.register(name, email, password);
         if (success) {
             return ResponseEntity.ok(new RegisterResponse(true, "User registered successfully"));
         } else {
             return ResponseEntity.badRequest()
-                .body(new RegisterResponse(false, "Username already exists or registration failed"));
+                .body(new RegisterResponse(false, "Name or email already exists or registration failed"));
         }
     }
 }

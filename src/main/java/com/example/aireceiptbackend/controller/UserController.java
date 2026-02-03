@@ -35,13 +35,12 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
 
-        if (!isSelf(username)) {
-            return ResponseEntity.status(403).build();
-        }
-
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        if (!isSelf(userOpt.get())) {
+            return ResponseEntity.status(403).build();
         }
 
         return ResponseEntity.ok(toProfile(userOpt.get()));
@@ -56,13 +55,12 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
 
-        if (!isSelf(username)) {
-            return ResponseEntity.status(403).build();
-        }
-
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        if (!isSelf(userOpt.get())) {
+            return ResponseEntity.status(403).build();
         }
 
         if (req == null) {
@@ -107,12 +105,12 @@ public class UserController {
         );
     }
 
-    private boolean isSelf(String username) {
+    private boolean isSelf(User user) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             return false;
         }
         String authName = auth.getName();
-        return authName != null && authName.equals(username);
+        return authName != null && (authName.equals(user.getEmail()) || authName.equals(user.getUsername()));
     }
 }

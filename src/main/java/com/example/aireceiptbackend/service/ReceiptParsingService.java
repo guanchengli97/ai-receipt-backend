@@ -50,7 +50,7 @@ public class ReceiptParsingService {
         this.model = model;
     }
 
-    public ReceiptParseResponse parseAndSaveFromUrl(String imageUrl, String username) throws IOException {
+    public ReceiptParseResponse parseAndSaveFromUrl(String imageUrl, String email) throws IOException {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Gemini API key is not configured");
         }
@@ -60,7 +60,7 @@ public class ReceiptParsingService {
         URI uri = parseUri(imageUrl);
         validateHttpUrl(uri);
 
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         ResponseEntity<byte[]> imageResponse;

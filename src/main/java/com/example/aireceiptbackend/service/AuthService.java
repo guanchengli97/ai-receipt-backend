@@ -19,13 +19,13 @@ public class AuthService {
         this.userRepository = userRepository;
     }
 
-    public String login(String username, String password) {
-        if (username == null || username.trim().isEmpty() ||
+    public String login(String email, String password) {
+        if (email == null || email.trim().isEmpty() ||
             password == null || password.trim().isEmpty()) {
             return null;
         }
 
-        Optional<User> userOpt = userRepository.findByUsername(username);
+        Optional<User> userOpt = userRepository.findByEmail(email.trim());
         if (userOpt.isEmpty()) {
             return null;
         }
@@ -38,24 +38,21 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             return null;
         }
-        return JwtUtil.generateToken(username);
+        return JwtUtil.generateToken(user.getEmail());
     }
 
-    public boolean register(String username, String password) {
-        // Validate username and password
-        if (username == null || username.trim().isEmpty() || 
+    public boolean register(String username, String email, String password) {
+        if (username == null || username.trim().isEmpty() ||
+            email == null || email.trim().isEmpty() ||
             password == null || password.trim().isEmpty()) {
-            return false; // Invalid username or password
+            return false;
         }
 
-        // Check if user already exists
-        if (userRepository.existsByUsername(username)) {
-            return false; // User already exists
+        if (userRepository.existsByUsername(username) || userRepository.existsByEmail(email)) {
+            return false;
         }
-        
-        // Store the new user with encoded password
-        String email = username + "@local";
-        User user = new User(username, email, passwordEncoder.encode(password));
+
+        User user = new User(username.trim(), email.trim(), passwordEncoder.encode(password));
         userRepository.save(user);
         return true;
     }
