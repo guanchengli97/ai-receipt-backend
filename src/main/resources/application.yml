@@ -30,3 +30,10 @@ gemini:
   api-base: "https://generativelanguage.googleapis.com"
   model: "gemini-2.5-flash-lite"
   timeout-ms: 20000
+
+aws:
+  s3:
+    region: "us-east-1"
+    bucket: "{{ aws_s3_bucket }}"
+    upload-expiry-seconds: 300
+    download-expiry-seconds: 120

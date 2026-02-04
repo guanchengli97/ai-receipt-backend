@@ -1,7 +1,7 @@
 package com.example.aireceiptbackend.controller;
 
 import com.example.aireceiptbackend.model.ReceiptParseResponse;
-import com.example.aireceiptbackend.model.ReceiptUrlRequest;
+import com.example.aireceiptbackend.model.ReceiptParseRequest;
 import com.example.aireceiptbackend.service.ReceiptParsingService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -45,15 +45,15 @@ public class ReceiptController {
     }
 
     @PostMapping(value = "/parse", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> parseReceipt(@RequestBody ReceiptUrlRequest request) throws IOException {
+    public ResponseEntity<?> parseReceipt(@RequestBody ReceiptParseRequest request) throws IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Unauthorized"));
         }
 
         try {
-            ReceiptParseResponse response = receiptParsingService.parseAndSaveFromUrl(
-                request != null ? request.getUrl() : null,
+            ReceiptParseResponse response = receiptParsingService.parseAndSaveFromImageId(
+                request != null ? request.getImageId() : null,
                 authentication.getName()
             );
             return ResponseEntity.ok(response);

@@ -84,7 +84,7 @@ jobs:
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET,GEMINI_API_KEY
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET,GEMINI_API_KEY,AWS_S3_BUCKET,AWS_S3_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
           script: |
             set -e
             USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
@@ -114,6 +114,10 @@ jobs:
               -e SPRING_DATASOURCE_PASSWORD="${DB_PASSWORD}" \
               -e JWT_SECRET="${JWT_SECRET}" \
               -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
+              -e AWS_S3_BUCKET="${AWS_S3_BUCKET}" \
+              -e AWS_S3_REGION="${AWS_S3_REGION}" \
+              -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+              -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               "$IMAGE"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -121,4 +125,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_REGION: ${{ secrets.AWS_S3_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 

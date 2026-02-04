@@ -1,6 +1,7 @@
 package com.example.aireceiptbackend.service;
 
 import com.example.aireceiptbackend.model.*;
+import com.example.aireceiptbackend.repository.ImageAssetRepository;
 import com.example.aireceiptbackend.repository.ReceiptRepository;
 import com.example.aireceiptbackend.repository.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,11 +12,13 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -25,59 +28,73 @@ import java.util.*;
 public class ReceiptParsingService {
 
     private final RestTemplate restTemplate;
+    private final S3Client s3Client;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
+    private final ImageAssetRepository imageAssetRepository;
     private final ReceiptRepository receiptRepository;
     private final String apiKey;
     private final String apiBase;
     private final String model;
+    private final String bucket;
 
     public ReceiptParsingService(
         RestTemplate restTemplate,
+        S3Client s3Client,
         ObjectMapper objectMapper,
         UserRepository userRepository,
+        ImageAssetRepository imageAssetRepository,
         ReceiptRepository receiptRepository,
         @Value("${gemini.api-key:}") String apiKey,
         @Value("${gemini.api-base:https://generativelanguage.googleapis.com}") String apiBase,
-        @Value("${gemini.model:gemini-2.5-flash-lite}") String model
+        @Value("${gemini.model:gemini-2.5-flash-lite}") String model,
+        @Value("${aws.s3.bucket}") String bucket
     ) {
         this.restTemplate = restTemplate;
+        this.s3Client = s3Client;
         this.objectMapper = objectMapper;
         this.userRepository = userRepository;
+        this.imageAssetRepository = imageAssetRepository;
         this.receiptRepository = receiptRepository;
         this.apiKey = apiKey;
         this.apiBase = apiBase;
         this.model = model;
+        this.bucket = bucket;
     }
 
-    public ReceiptParseResponse parseAndSaveFromUrl(String imageUrl, String email) throws IOException {
+    public ReceiptParseResponse parseAndSaveFromImageId(Long imageId, String principal) throws IOException {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Gemini API key is not configured");
         }
-        if (imageUrl == null || imageUrl.trim().isEmpty()) {
-            throw new IllegalArgumentException("Image URL is required");
+        if (imageId == null) {
+            throw new IllegalArgumentException("imageId is required");
         }
-        URI uri = parseUri(imageUrl);
-        validateHttpUrl(uri);
-        
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("User not found for email: " + email));
 
-        ResponseEntity<byte[]> imageResponse;
+        User user = resolveUser(principal);
+        ImageAsset imageAsset = imageAssetRepository.findByIdAndUser(imageId, user)
+            .orElseThrow(() -> new IllegalArgumentException("Image not found"));
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+            .bucket(bucket)
+            .key(imageAsset.getObjectKey())
+            .build();
+
+        byte[] imageBytes;
         try {
-            imageResponse = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
-        } catch (RestClientException ex) {
-            throw new IllegalArgumentException("Failed to download image");
+            ResponseBytes<?> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+            imageBytes = objectBytes.asByteArray();
+        } catch (S3Exception ex) {
+            throw new IllegalArgumentException("Failed to read image from storage");
+        }
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new IllegalArgumentException("Stored image is empty");
         }
 
-        if (!imageResponse.getStatusCode().is2xxSuccessful() || imageResponse.getBody() == null || imageResponse.getBody().length == 0) {
-            throw new IllegalArgumentException("Image download returned empty data");
+        String mimeType = trimToNull(imageAsset.getContentType());
+        if (mimeType == null) {
+            mimeType = "image/jpeg";
         }
-
-        String mimeType = Optional.ofNullable(imageResponse.getHeaders().getContentType())
-            .map(MediaType::toString)
-            .orElse("image/jpeg");
-        String base64 = Base64.getEncoder().encodeToString(imageResponse.getBody());
+        String base64 = Base64.getEncoder().encodeToString(imageBytes);
 
         String prompt = "Extract receipt data and return JSON only. " +
             "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice.";
@@ -98,7 +115,8 @@ public class ReceiptParsingService {
 
         ReceiptExtraction extraction = parseExtraction(response.getBody());
         Receipt receipt = mapToReceipt(extraction, user);
-        receipt.setImageUrl(imageUrl);
+        receipt.setImageAsset(imageAsset);
+        receipt.setImageUrl(buildStorageUrl(imageAsset.getObjectKey()));
         receipt.setRawJson(extraction != null ? safeToJson(extraction) : null);
         Receipt saved = receiptRepository.save(receipt);
 
@@ -243,6 +261,7 @@ public class ReceiptParsingService {
         response.setMerchantName(receipt.getMerchantName());
         response.setReceiptDate(receipt.getReceiptDate());
         response.setCurrency(receipt.getCurrency());
+        response.setImageId(receipt.getImageAsset() != null ? receipt.getImageAsset().getId() : null);
         response.setImageUrl(receipt.getImageUrl());
         response.setSubtotal(receipt.getSubtotalAmount());
         response.setTax(receipt.getTaxAmount());
@@ -309,21 +328,17 @@ public class ReceiptParsingService {
         }
     }
 
-    private URI parseUri(String value) {
-        try {
-            return new URI(value.trim());
-        } catch (URISyntaxException ex) {
-            throw new IllegalArgumentException("Invalid image URL");
+    private User resolveUser(String principal) {
+        String normalized = trimToNull(principal);
+        if (normalized == null || "anonymousUser".equals(normalized)) {
+            throw new IllegalArgumentException("Unauthorized");
         }
+        return userRepository.findByEmail(normalized)
+            .or(() -> userRepository.findByUsername(normalized))
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
-    private void validateHttpUrl(URI uri) {
-        if (uri == null || uri.getScheme() == null) {
-            throw new IllegalArgumentException("Invalid image URL");
-        }
-        String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!scheme.equals("http") && !scheme.equals("https")) {
-            throw new IllegalArgumentException("Image URL must be http or https");
-        }
+    private String buildStorageUrl(String objectKey) {
+        return "s3://" + bucket + "/" + objectKey;
     }
 }

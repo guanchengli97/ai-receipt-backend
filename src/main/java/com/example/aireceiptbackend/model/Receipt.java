@@ -31,6 +31,10 @@ public class Receipt {
     @Column(name = "image_url", length = 2048)
     private String imageUrl;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "image_asset_id")
+    private ImageAsset imageAsset;
+
     @Column(name = "subtotal_amount", precision = 12, scale = 2)
     private BigDecimal subtotalAmount;
 
@@ -110,6 +114,14 @@ public class Receipt {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public ImageAsset getImageAsset() {
+        return imageAsset;
+    }
+
+    public void setImageAsset(ImageAsset imageAsset) {
+        this.imageAsset = imageAsset;
     }
 
     public BigDecimal getSubtotalAmount() {

@@ -30,3 +30,6 @@ jwt_expiration: 86400000  # 24 hours in milliseconds
 
 # Gemini settings
 gemini_api_key: "{{ vault_gemini_api_key | default('') }}"
+
+# AWS S3 settings
+aws_s3_bucket: "{{ vault_aws_s3_bucket | default('') }}"
