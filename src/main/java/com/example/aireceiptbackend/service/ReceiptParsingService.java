@@ -147,11 +147,11 @@ public class ReceiptParsingService {
 
     public ReceiptStatsResponse getMonthlyStats(String principal) {
         User user = resolveUser(principal);
-        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
-        LocalDateTime nextMonthStart = monthStart.plusMonths(1);
+        LocalDate monthStart = LocalDate.now().withDayOfMonth(1);
+        LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
 
-        BigDecimal totalSpent = receiptRepository.sumTotalAmountByUserAndCreatedAtBetween(user, monthStart, nextMonthStart);
-        long count = receiptRepository.countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(user, monthStart, nextMonthStart);
+        BigDecimal totalSpent = receiptRepository.sumTotalAmountByUserAndReceiptDateBetween(user, monthStart, monthEnd);
+        long count = receiptRepository.countByUserAndReceiptDateGreaterThanEqualAndReceiptDateLessThanEqual(user, monthStart, monthEnd);
 
         ReceiptStatsResponse response = new ReceiptStatsResponse();
         response.setTotalSpentThisMonth(totalSpent != null ? totalSpent : BigDecimal.ZERO);
@@ -184,6 +184,56 @@ public class ReceiptParsingService {
         Receipt receipt = receiptRepository.findByIdAndUser(receiptId, user)
             .orElseThrow(() -> new IllegalArgumentException("Receipt not found"));
         return toResponse(receipt);
+    }
+
+    public ReceiptParseResponse updateReceiptDetails(Long receiptId, ReceiptUpdateRequest request, String principal) {
+        if (receiptId == null) {
+            throw new IllegalArgumentException("receiptId is required");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        User user = resolveUser(principal);
+        Receipt receipt = receiptRepository.findByIdAndUser(receiptId, user)
+            .orElseThrow(() -> new IllegalArgumentException("Receipt not found"));
+
+        if (request.getMerchantName() != null) {
+            receipt.setMerchantName(trimToNull(request.getMerchantName()));
+        }
+        if (request.getReceiptDate() != null) {
+            receipt.setReceiptDate(request.getReceiptDate());
+        }
+        if (request.getCurrency() != null) {
+            String currency = trimToNull(request.getCurrency());
+            receipt.setCurrency(currency != null ? currency.toUpperCase() : null);
+        }
+        if (request.getSubtotal() != null) {
+            receipt.setSubtotalAmount(request.getSubtotal());
+        }
+        if (request.getTax() != null) {
+            receipt.setTaxAmount(request.getTax());
+        }
+        if (request.getTotal() != null) {
+            receipt.setTotalAmount(request.getTotal());
+        }
+
+        if (request.getItems() != null) {
+            receipt.getItems().clear();
+            for (ReceiptUpdateRequest.ReceiptUpdateItem itemRequest : request.getItems()) {
+                if (itemRequest == null) {
+                    continue;
+                }
+                ReceiptItem item = new ReceiptItem();
+                item.setDescription(trimToNull(itemRequest.getDescription()));
+                item.setQuantity(itemRequest.getQuantity());
+                item.setUnitPrice(itemRequest.getUnitPrice());
+                item.setTotalPrice(itemRequest.getTotalPrice());
+                receipt.addItem(item);
+            }
+        }
+
+        Receipt saved = receiptRepository.save(receipt);
+        return toResponse(saved);
     }
 
     public List<ReceiptParseResponse> getReceiptsByDateRange(LocalDate startDate, LocalDate endDate, String principal) {

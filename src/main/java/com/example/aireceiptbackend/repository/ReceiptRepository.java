@@ -34,4 +34,13 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
         @Param("start") LocalDateTime start,
         @Param("end") LocalDateTime end
     );
+
+    long countByUserAndReceiptDateGreaterThanEqualAndReceiptDateLessThanEqual(User user, java.time.LocalDate start, java.time.LocalDate end);
+
+    @Query("select coalesce(sum(r.totalAmount), 0) from Receipt r where r.user = :user and r.receiptDate >= :start and r.receiptDate <= :end")
+    BigDecimal sumTotalAmountByUserAndReceiptDateBetween(
+        @Param("user") User user,
+        @Param("start") java.time.LocalDate start,
+        @Param("end") java.time.LocalDate end
+    );
 }

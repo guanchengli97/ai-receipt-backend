@@ -4,6 +4,7 @@ import com.example.aireceiptbackend.model.ReceiptParseResponse;
 import com.example.aireceiptbackend.model.ReceiptParseRequest;
 import com.example.aireceiptbackend.model.ReceiptReviewRequest;
 import com.example.aireceiptbackend.model.ReceiptStatsResponse;
+import com.example.aireceiptbackend.model.ReceiptUpdateRequest;
 import com.example.aireceiptbackend.service.ReceiptParsingService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -146,6 +147,28 @@ public class ReceiptController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(ex.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateReceipt(
+        @PathVariable("id") Long id,
+        @RequestBody ReceiptUpdateRequest request
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Unauthorized"));
+        }
+
+        try {
+            ReceiptParseResponse response = receiptParsingService.updateReceiptDetails(
+                id,
+                request,
+                authentication.getName()
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(error(ex.getMessage()));
         }
     }
 
