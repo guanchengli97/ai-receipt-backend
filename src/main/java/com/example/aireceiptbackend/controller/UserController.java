@@ -29,6 +29,24 @@ public class UserController {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMyProfile() {
+        Optional<User> userOpt = getCurrentUser();
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(toProfile(userOpt.get()));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserProfileResponse> updateMyProfile(@RequestBody UserUpdateRequest req) {
+        Optional<User> userOpt = getCurrentUser();
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        return updateUser(userOpt.get(), req);
+    }
+
     @GetMapping("/{username}")
     public ResponseEntity<UserProfileResponse> getProfile(@PathVariable String username) {
         if (username == null || username.trim().isEmpty()) {
@@ -63,11 +81,14 @@ public class UserController {
             return ResponseEntity.status(403).build();
         }
 
+        return updateUser(userOpt.get(), req);
+    }
+
+    private ResponseEntity<UserProfileResponse> updateUser(User user, UserUpdateRequest req) {
         if (req == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        User user = userOpt.get();
         boolean changed = false;
 
         if (req.getEmail() != null && !req.getEmail().trim().isEmpty()) {
@@ -86,6 +107,14 @@ public class UserController {
             changed = true;
         }
 
+        if (req.getCurrency() != null && !req.getCurrency().trim().isEmpty()) {
+            String newCurrency = req.getCurrency().trim().toUpperCase();
+            if (!newCurrency.equals(user.getCurrency())) {
+                user.setCurrency(newCurrency);
+                changed = true;
+            }
+        }
+
         if (!changed) {
             return ResponseEntity.badRequest().build();
         }
@@ -94,11 +123,24 @@ public class UserController {
         return ResponseEntity.ok(toProfile(saved));
     }
 
+    private Optional<User> getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return Optional.empty();
+        }
+        String authName = auth.getName();
+        if (authName == null || authName.trim().isEmpty() || "anonymousUser".equals(authName)) {
+            return Optional.empty();
+        }
+        return userRepository.findByEmail(authName).or(() -> userRepository.findByUsername(authName));
+    }
+
     private UserProfileResponse toProfile(User user) {
         return new UserProfileResponse(
             user.getId(),
             user.getUsername(),
             user.getEmail(),
+            user.getCurrency(),
             user.getIsActive(),
             user.getCreatedAt(),
             user.getUpdatedAt()

@@ -29,6 +29,9 @@ public class User {
     @Column(name = "is_active")
     private Boolean isActive = true;
 
+    @Column(name = "currency", nullable = false, length = 8)
+    private String currency = "USD";
+
     public User() {}
 
     public User(String username, String email, String password) {
@@ -43,6 +46,9 @@ public class User {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (currency == null || currency.trim().isEmpty()) {
+            currency = "USD";
+        }
     }
 
     @PreUpdate
@@ -105,5 +111,13 @@ public class User {
 
     public void setIsActive(Boolean active) {
         isActive = active;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 }

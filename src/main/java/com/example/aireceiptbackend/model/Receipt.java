@@ -44,6 +44,9 @@ public class Receipt {
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "is_reviewed", nullable = false)
+    private Boolean isReviewed = false;
+
     @Lob
     @Column(name = "raw_json")
     private String rawJson;
@@ -60,6 +63,9 @@ public class Receipt {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (isReviewed == null) {
+            isReviewed = false;
+        }
     }
 
     public void addItem(ReceiptItem item) {
@@ -146,6 +152,14 @@ public class Receipt {
 
     public void setTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public Boolean getIsReviewed() {
+        return isReviewed;
+    }
+
+    public void setIsReviewed(Boolean reviewed) {
+        isReviewed = reviewed;
     }
 
     public String getRawJson() {

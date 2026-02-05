@@ -117,6 +117,7 @@ public class ReceiptParsingService {
         Receipt receipt = mapToReceipt(extraction, user);
         receipt.setImageAsset(imageAsset);
         receipt.setImageUrl(buildStorageUrl(imageAsset.getObjectKey()));
+        receipt.setIsReviewed(false);
         receipt.setRawJson(extraction != null ? safeToJson(extraction) : null);
         Receipt saved = receiptRepository.save(receipt);
 
@@ -124,12 +125,7 @@ public class ReceiptParsingService {
     }
 
     public List<ReceiptParseResponse> getReceiptsByUserEmail(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            throw new IllegalArgumentException("User email is required");
-        }
-
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("User not found for email: " + email));
+        User user = resolveUser(email);
 
         List<Receipt> receipts = receiptRepository.findByUser(user);
         receipts.sort(
@@ -147,6 +143,47 @@ public class ReceiptParsingService {
             responses.add(toResponse(receipt));
         }
         return responses;
+    }
+
+    public ReceiptStatsResponse getMonthlyStats(String principal) {
+        User user = resolveUser(principal);
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime nextMonthStart = monthStart.plusMonths(1);
+
+        BigDecimal totalSpent = receiptRepository.sumTotalAmountByUserAndCreatedAtBetween(user, monthStart, nextMonthStart);
+        long count = receiptRepository.countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(user, monthStart, nextMonthStart);
+
+        ReceiptStatsResponse response = new ReceiptStatsResponse();
+        response.setTotalSpentThisMonth(totalSpent != null ? totalSpent : BigDecimal.ZERO);
+        response.setReceiptsProcessedThisMonth(count);
+        return response;
+    }
+
+    public ReceiptParseResponse updateReviewStatus(Long receiptId, Boolean reviewed, String principal) {
+        if (receiptId == null) {
+            throw new IllegalArgumentException("receiptId is required");
+        }
+        if (reviewed == null) {
+            throw new IllegalArgumentException("reviewed is required");
+        }
+
+        User user = resolveUser(principal);
+        Receipt receipt = receiptRepository.findByIdAndUser(receiptId, user)
+            .orElseThrow(() -> new IllegalArgumentException("Receipt not found"));
+
+        receipt.setIsReviewed(reviewed);
+        Receipt saved = receiptRepository.save(receipt);
+        return toResponse(saved);
+    }
+
+    public ReceiptParseResponse getReceiptById(Long receiptId, String principal) {
+        if (receiptId == null) {
+            throw new IllegalArgumentException("receiptId is required");
+        }
+        User user = resolveUser(principal);
+        Receipt receipt = receiptRepository.findByIdAndUser(receiptId, user)
+            .orElseThrow(() -> new IllegalArgumentException("Receipt not found"));
+        return toResponse(receipt);
     }
 
     private Map<String, Object> buildRequestBody(String prompt, String mimeType, String base64) {
@@ -263,6 +300,7 @@ public class ReceiptParsingService {
         response.setCurrency(receipt.getCurrency());
         response.setImageId(receipt.getImageAsset() != null ? receipt.getImageAsset().getId() : null);
         response.setImageUrl(receipt.getImageUrl());
+        response.setReviewed(Boolean.TRUE.equals(receipt.getIsReviewed()));
         response.setSubtotal(receipt.getSubtotalAmount());
         response.setTax(receipt.getTaxAmount());
         response.setTotal(receipt.getTotalAmount());

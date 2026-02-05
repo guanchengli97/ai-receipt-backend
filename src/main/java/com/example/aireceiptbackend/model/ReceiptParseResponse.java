@@ -11,6 +11,7 @@ public class ReceiptParseResponse {
     private String currency;
     private Long imageId;
     private String imageUrl;
+    private Boolean reviewed;
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal total;
@@ -54,6 +55,14 @@ public class ReceiptParseResponse {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Boolean getReviewed() {
+        return reviewed;
+    }
+
+    public void setReviewed(Boolean reviewed) {
+        this.reviewed = reviewed;
     }
 
     public Long getImageId() {
