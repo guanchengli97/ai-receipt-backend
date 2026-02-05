@@ -16,6 +16,16 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     Optional<Receipt> findByIdAndUser(Long id, User user);
     List<Receipt> findByUserEmailOrderByCreatedAtDesc(String email);
     List<Receipt> findByUserUsernameOrderByCreatedAtDesc(String username);
+    List<Receipt> findByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+        User user,
+        LocalDateTime start,
+        LocalDateTime end
+    );
+    List<Receipt> findByUserAndReceiptDateGreaterThanEqualAndReceiptDateLessThanEqualOrderByReceiptDateDesc(
+        User user,
+        java.time.LocalDate start,
+        java.time.LocalDate end
+    );
     long countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(User user, LocalDateTime start, LocalDateTime end);
 
     @Query("select coalesce(sum(r.totalAmount), 0) from Receipt r where r.user = :user and r.createdAt >= :start and r.createdAt < :end")

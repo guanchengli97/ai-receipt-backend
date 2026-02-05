@@ -186,6 +186,29 @@ public class ReceiptParsingService {
         return toResponse(receipt);
     }
 
+    public List<ReceiptParseResponse> getReceiptsByDateRange(LocalDate startDate, LocalDate endDate, String principal) {
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("start and end are required");
+        }
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("end must be on or after start");
+        }
+
+        User user = resolveUser(principal);
+        List<Receipt> receipts = receiptRepository
+            .findByUserAndReceiptDateGreaterThanEqualAndReceiptDateLessThanEqualOrderByReceiptDateDesc(
+                user,
+                startDate,
+                endDate
+            );
+
+        List<ReceiptParseResponse> responses = new ArrayList<>();
+        for (Receipt receipt : receipts) {
+            responses.add(toResponse(receipt));
+        }
+        return responses;
+    }
+
     private Map<String, Object> buildRequestBody(String prompt, String mimeType, String base64) {
         Map<String, Object> inlineData = new HashMap<>();
         inlineData.put("mime_type", mimeType);

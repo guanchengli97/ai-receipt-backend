@@ -17,8 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +61,32 @@ public class ReceiptController {
         try {
             ReceiptStatsResponse response = receiptParsingService.getMonthlyStats(authentication.getName());
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(error(ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/me/range")
+    public ResponseEntity<?> getMyReceiptsByDateRange(
+        @RequestParam("start") String start,
+        @RequestParam("end") String end
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Unauthorized"));
+        }
+
+        try {
+            LocalDate startDate = LocalDate.parse(start);
+            LocalDate endDate = LocalDate.parse(end);
+            List<ReceiptParseResponse> responses = receiptParsingService.getReceiptsByDateRange(
+                startDate,
+                endDate,
+                authentication.getName()
+            );
+            return ResponseEntity.ok(responses);
+        } catch (DateTimeParseException ex) {
+            return ResponseEntity.badRequest().body(error("Invalid date format. Use YYYY-MM-DD"));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(error(ex.getMessage()));
         }
