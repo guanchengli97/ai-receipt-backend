@@ -8,6 +8,7 @@ public class ReceiptUpdateRequest {
     private String merchantName;
     private LocalDate receiptDate;
     private String currency;
+    private String category;
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal total;
@@ -35,6 +36,14 @@ public class ReceiptUpdateRequest {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public BigDecimal getSubtotal() {

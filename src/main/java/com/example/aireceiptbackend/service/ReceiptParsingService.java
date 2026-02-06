@@ -49,7 +49,7 @@ public class ReceiptParsingService {
         ReceiptRepository receiptRepository,
         @Value("${gemini.api-key:}") String apiKey,
         @Value("${gemini.api-base:https://generativelanguage.googleapis.com}") String apiBase,
-        @Value("${gemini.model:gemini-2.5-flash-lite}") String model,
+        @Value("${gemini.model:gemini-2.5-flash}") String model,
         @Value("${aws.s3.bucket}") String bucket
     ) {
         this.restTemplate = restTemplate;
@@ -99,7 +99,38 @@ public class ReceiptParsingService {
         String base64 = Base64.getEncoder().encodeToString(imageBytes);
 
         String prompt = "Extract receipt data and return JSON only. " +
-            "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice.";
+            "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice, category.";
+
+        // String prompt = """
+        //     Extract receipt data and return ONE valid JSON object only.
+        //     Use ISO-8601 date (YYYY-MM-DD).
+        //     Include items with subtotal, tax, total, and category if possible.
+        //     JSON schema:
+        //     {
+        //     "receiptId": number | null,
+        //     "merchantName": string,
+        //     "receiptDate": string,
+        //     "currency": string,
+        //     "imageUrl": string | null,
+        //     "subtotal": number | null,
+        //     "tax": number | null,
+        //     "total": number | null,
+        //     "category": "Housing" | "Utilities" | "Food" | "Transportation" |
+        //                 "Shopping" | "Health" | "Entertainment" |
+        //                 "Subscriptions" | "Travel" | "Education" | "Other",
+        //     "items": [
+        //         {
+        //         "description": string,
+        //         "quantity": number | null,
+        //         "unitPrice": number | null,
+        //         "totalPrice": number | null
+        //         }
+        //     ]
+        //     }
+        //     """;
+
+
+
 
         Map<String, Object> requestBody = buildRequestBody(prompt, mimeType, base64);
         HttpHeaders headers = new HttpHeaders();
@@ -208,6 +239,9 @@ public class ReceiptParsingService {
         if (request.getCurrency() != null) {
             String currency = trimToNull(request.getCurrency());
             receipt.setCurrency(currency != null ? currency.toUpperCase() : null);
+        }
+        if (request.getCategory() != null) {
+            receipt.setCategory(trimToNull(request.getCategory()));
         }
         if (request.getSubtotal() != null) {
             receipt.setSubtotalAmount(request.getSubtotal());
@@ -372,6 +406,7 @@ public class ReceiptParsingService {
         properties.put("merchantName", mapSchemaType("string"));
         properties.put("receiptDate", mapSchemaType("string"));
         properties.put("currency", mapSchemaType("string"));
+        properties.put("category", mapSchemaType("string"));
         properties.put("subtotal", mapSchemaType("string"));
         properties.put("tax", mapSchemaType("string"));
         properties.put("total", mapSchemaType("string"));
@@ -440,6 +475,7 @@ public class ReceiptParsingService {
         }
         receipt.setMerchantName(trimToNull(extraction.getMerchantName()));
         receipt.setCurrency(trimToNull(extraction.getCurrency()));
+        receipt.setCategory(trimToNull(extraction.getCategory()));
         receipt.setReceiptDate(parseDate(extraction.getReceiptDate()));
         receipt.setSubtotalAmount(parseAmount(extraction.getSubtotal()));
         receipt.setTaxAmount(parseAmount(extraction.getTax()));
@@ -464,6 +500,7 @@ public class ReceiptParsingService {
         response.setMerchantName(receipt.getMerchantName());
         response.setReceiptDate(receipt.getReceiptDate());
         response.setCurrency(receipt.getCurrency());
+        response.setCategory(receipt.getCategory());
         response.setImageId(receipt.getImageAsset() != null ? receipt.getImageAsset().getId() : null);
         response.setImageUrl(receipt.getImageUrl());
         response.setReviewed(Boolean.TRUE.equals(receipt.getIsReviewed()));

@@ -9,6 +9,7 @@ public class ReceiptParseResponse {
     private String merchantName;
     private LocalDate receiptDate;
     private String currency;
+    private String category;
     private Long imageId;
     private String imageUrl;
     private Boolean reviewed;
@@ -47,6 +48,14 @@ public class ReceiptParseResponse {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getImageUrl() {

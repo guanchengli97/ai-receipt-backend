@@ -6,6 +6,7 @@ public class ReceiptExtraction {
     private String merchantName;
     private String receiptDate;
     private String currency;
+    private String category;
     private String subtotal;
     private String tax;
     private String total;
@@ -33,6 +34,14 @@ public class ReceiptExtraction {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getSubtotal() {

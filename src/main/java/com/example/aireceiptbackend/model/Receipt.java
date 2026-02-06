@@ -28,6 +28,9 @@ public class Receipt {
     @Column(name = "currency", length = 8)
     private String currency;
 
+    @Column(name = "category", length = 64)
+    private String category;
+
     @Column(name = "image_url", length = 2048)
     private String imageUrl;
 
@@ -112,6 +115,14 @@ public class Receipt {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getImageUrl() {
