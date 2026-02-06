@@ -10,10 +10,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -234,6 +236,97 @@ public class ReceiptParsingService {
 
         Receipt saved = receiptRepository.save(receipt);
         return toResponse(saved);
+    }
+
+    @Transactional
+    public ReceiptDeleteResponse deleteReceipt(Long receiptId, String principal) {
+        if (receiptId == null) {
+            throw new IllegalArgumentException("receiptId is required");
+        }
+
+        User user = resolveUser(principal);
+        Receipt receipt = receiptRepository.findByIdAndUser(receiptId, user)
+            .orElseThrow(() -> new IllegalArgumentException("Receipt not found"));
+
+        ImageAsset imageAsset = receipt.getImageAsset();
+        receiptRepository.delete(receipt);
+        cleanupOrphanImageAssets(Collections.singletonList(imageAsset));
+        return new ReceiptDeleteResponse(1, Collections.singletonList(receiptId));
+    }
+
+    @Transactional
+    public ReceiptDeleteResponse deleteReceipts(List<Long> receiptIds, String principal) {
+        if (receiptIds == null || receiptIds.isEmpty()) {
+            throw new IllegalArgumentException("ids is required");
+        }
+
+        LinkedHashSet<Long> uniqueIds = new LinkedHashSet<>();
+        for (Long id : receiptIds) {
+            if (id == null) {
+                throw new IllegalArgumentException("ids must not contain null");
+            }
+            uniqueIds.add(id);
+        }
+
+        User user = resolveUser(principal);
+        List<Receipt> receipts = receiptRepository.findByIdInAndUser(uniqueIds, user);
+
+        Set<Long> foundIds = new HashSet<>();
+        for (Receipt receipt : receipts) {
+            foundIds.add(receipt.getId());
+        }
+
+        List<Long> missingIds = new ArrayList<>();
+        for (Long id : uniqueIds) {
+            if (!foundIds.contains(id)) {
+                missingIds.add(id);
+            }
+        }
+        if (!missingIds.isEmpty()) {
+            throw new IllegalArgumentException("Receipts not found: " + missingIds);
+        }
+
+        List<ImageAsset> imageAssets = new ArrayList<>();
+        for (Receipt receipt : receipts) {
+            imageAssets.add(receipt.getImageAsset());
+        }
+
+        receiptRepository.deleteAll(receipts);
+        cleanupOrphanImageAssets(imageAssets);
+        List<Long> deletedIds = new ArrayList<>(uniqueIds);
+        return new ReceiptDeleteResponse(deletedIds.size(), deletedIds);
+    }
+
+    private void cleanupOrphanImageAssets(List<ImageAsset> imageAssets) {
+        if (imageAssets == null || imageAssets.isEmpty()) {
+            return;
+        }
+
+        LinkedHashMap<Long, ImageAsset> distinctAssets = new LinkedHashMap<>();
+        for (ImageAsset imageAsset : imageAssets) {
+            if (imageAsset == null || imageAsset.getId() == null) {
+                continue;
+            }
+            distinctAssets.putIfAbsent(imageAsset.getId(), imageAsset);
+        }
+
+        for (ImageAsset imageAsset : distinctAssets.values()) {
+            if (receiptRepository.existsByImageAsset(imageAsset)) {
+                continue;
+            }
+
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(imageAsset.getObjectKey())
+                .build();
+            try {
+                s3Client.deleteObject(deleteObjectRequest);
+            } catch (S3Exception ex) {
+                throw new IllegalStateException("Failed to delete image from storage");
+            }
+
+            imageAssetRepository.delete(imageAsset);
+        }
     }
 
     public List<ReceiptParseResponse> getReceiptsByDateRange(LocalDate startDate, LocalDate endDate, String principal) {

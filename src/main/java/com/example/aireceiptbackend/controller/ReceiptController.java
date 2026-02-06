@@ -1,5 +1,7 @@
 package com.example.aireceiptbackend.controller;
 
+import com.example.aireceiptbackend.model.ReceiptDeleteRequest;
+import com.example.aireceiptbackend.model.ReceiptDeleteResponse;
 import com.example.aireceiptbackend.model.ReceiptParseResponse;
 import com.example.aireceiptbackend.model.ReceiptParseRequest;
 import com.example.aireceiptbackend.model.ReceiptReviewRequest;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -169,6 +172,43 @@ public class ReceiptController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(error(ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteReceipt(@PathVariable("id") Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Unauthorized"));
+        }
+
+        try {
+            ReceiptDeleteResponse response = receiptParsingService.deleteReceipt(id, authentication.getName());
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(error(ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(error(ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteReceipts(@RequestBody ReceiptDeleteRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Unauthorized"));
+        }
+
+        try {
+            ReceiptDeleteResponse response = receiptParsingService.deleteReceipts(
+                request != null ? request.getIds() : null,
+                authentication.getName()
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(error(ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(error(ex.getMessage()));
         }
     }
 
