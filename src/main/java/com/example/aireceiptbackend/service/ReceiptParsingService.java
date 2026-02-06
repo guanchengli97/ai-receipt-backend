@@ -29,6 +29,19 @@ import java.util.*;
 @Service
 public class ReceiptParsingService {
 
+    private static final Set<String> ALLOWED_CATEGORIES = Set.of(
+        "Housing",
+        "Utilities",
+        "Food",
+        "Transportation",
+        "Shopping",
+        "Health",
+        "Entertainment",
+        "Subscriptions",
+        "Travel",
+        "Education"
+    );
+
     private final RestTemplate restTemplate;
     private final S3Client s3Client;
     private final ObjectMapper objectMapper;
@@ -99,7 +112,7 @@ public class ReceiptParsingService {
         String base64 = Base64.getEncoder().encodeToString(imageBytes);
 
         String prompt = "Extract receipt data and return JSON only. " +
-            "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice, category.";
+            "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice, category(Housing, Utilities, Food, Transportation, Shopping, Health, Entertainment, Subscriptions, Travel, Education).";
 
         // String prompt = """
         //     Extract receipt data and return ONE valid JSON object only.
@@ -189,6 +202,51 @@ public class ReceiptParsingService {
         ReceiptStatsResponse response = new ReceiptStatsResponse();
         response.setTotalSpentThisMonth(totalSpent != null ? totalSpent : BigDecimal.ZERO);
         response.setReceiptsProcessedThisMonth(count);
+        return response;
+    }
+
+    public CategorySpendingStatsResponse getMonthlySpendingByCategory(String principal) {
+        User user = resolveUser(principal);
+        LocalDate monthStart = LocalDate.now().withDayOfMonth(1);
+        LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+
+        List<Receipt> receipts = receiptRepository
+            .findByUserAndReceiptDateGreaterThanEqualAndReceiptDateLessThanEqualOrderByReceiptDateDesc(
+                user,
+                monthStart,
+                monthEnd
+            );
+
+        Map<String, BigDecimal> categoryTotals = new HashMap<>();
+        for (Receipt receipt : receipts) {
+            String category = normalizeCategoryForStats(receipt.getCategory());
+            BigDecimal amount = receipt.getTotalAmount() != null ? receipt.getTotalAmount() : BigDecimal.ZERO;
+            categoryTotals.merge(category, amount, BigDecimal::add);
+        }
+
+        List<CategorySpendingStatsResponse.CategorySpending> categories = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : categoryTotals.entrySet()) {
+            CategorySpendingStatsResponse.CategorySpending spending = new CategorySpendingStatsResponse.CategorySpending();
+            spending.setCategory(entry.getKey());
+            spending.setAmount(entry.getValue() != null ? entry.getValue() : BigDecimal.ZERO);
+            categories.add(spending);
+        }
+        categories.sort(
+            Comparator.comparing(CategorySpendingStatsResponse.CategorySpending::getAmount, Comparator.reverseOrder())
+                .thenComparing(CategorySpendingStatsResponse.CategorySpending::getCategory)
+        );
+
+        BigDecimal totalSpent = BigDecimal.ZERO;
+        for (CategorySpendingStatsResponse.CategorySpending spending : categories) {
+            totalSpent = totalSpent.add(spending.getAmount() != null ? spending.getAmount() : BigDecimal.ZERO);
+        }
+
+        CategorySpendingStatsResponse response = new CategorySpendingStatsResponse();
+        response.setMonthStart(monthStart);
+        response.setMonthEnd(monthEnd);
+        response.setCurrency("USD");
+        response.setTotalSpent(totalSpent);
+        response.setCategories(categories);
         return response;
     }
 
@@ -474,8 +532,8 @@ public class ReceiptParsingService {
             return receipt;
         }
         receipt.setMerchantName(trimToNull(extraction.getMerchantName()));
-        receipt.setCurrency(trimToNull(extraction.getCurrency()));
-        receipt.setCategory(trimToNull(extraction.getCategory()));
+        receipt.setCurrency(normalizeCurrency(extraction.getCurrency()));
+        receipt.setCategory(normalizeCategory(extraction.getCategory()));
         receipt.setReceiptDate(parseDate(extraction.getReceiptDate()));
         receipt.setSubtotalAmount(parseAmount(extraction.getSubtotal()));
         receipt.setTaxAmount(parseAmount(extraction.getTax()));
@@ -528,6 +586,29 @@ public class ReceiptParsingService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeCurrency(String currency) {
+        String normalized = trimToNull(currency);
+        return normalized != null ? normalized.toUpperCase() : "USD";
+    }
+
+    private String normalizeCategory(String category) {
+        String normalized = trimToNull(category);
+        if (normalized == null) {
+            return "Other";
+        }
+        for (String allowedCategory : ALLOWED_CATEGORIES) {
+            if (allowedCategory.equalsIgnoreCase(normalized)) {
+                return allowedCategory;
+            }
+        }
+        return "Other";
+    }
+
+    private String normalizeCategoryForStats(String category) {
+        String normalized = trimToNull(category);
+        return normalized != null ? normalized : "Other";
     }
 
     private LocalDate parseDate(String value) {
