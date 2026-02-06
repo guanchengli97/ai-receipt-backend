@@ -1,16 +1,26 @@
 package com.example.aireceiptbackend.model;
 
 public class UserUpdateRequest {
+    private String username;
     private String email;
     private String password;
     private String currency;
 
     public UserUpdateRequest() {}
 
-    public UserUpdateRequest(String email, String password, String currency) {
+    public UserUpdateRequest(String username, String email, String password, String currency) {
+        this.username = username;
         this.email = email;
         this.password = password;
         this.currency = currency;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getEmail() {

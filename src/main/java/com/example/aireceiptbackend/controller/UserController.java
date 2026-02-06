@@ -91,6 +91,17 @@ public class UserController {
 
         boolean changed = false;
 
+        if (req.getUsername() != null && !req.getUsername().trim().isEmpty()) {
+            String newUsername = req.getUsername().trim();
+            if (!newUsername.equals(user.getUsername())) {
+                if (Boolean.TRUE.equals(userRepository.existsByUsername(newUsername))) {
+                    return ResponseEntity.badRequest().build();
+                }
+                user.setUsername(newUsername);
+                changed = true;
+            }
+        }
+
         if (req.getEmail() != null && !req.getEmail().trim().isEmpty()) {
             String newEmail = req.getEmail().trim();
             if (!newEmail.equalsIgnoreCase(user.getEmail())) {
