@@ -31,6 +31,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      ACTIVATION_LINK_BASE: ${ACTIVATION_LINK_BASE:-https://aireceipt.guanchengli.com/activate}
       # Spring Boot relaxed binding maps GEMINI_API_KEY -> gemini.api-key
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}

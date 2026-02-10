@@ -27,7 +27,16 @@ public class User {
     private LocalDateTime updatedAt;
     
     @Column(name = "is_active")
-    private Boolean isActive = true;
+    private Boolean isActive = false;
+
+    @Column(name = "email_verification_token", length = 128)
+    private String emailVerificationToken;
+
+    @Column(name = "email_verification_expires_at")
+    private LocalDateTime emailVerificationExpiresAt;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
 
     @Column(name = "currency", nullable = false, length = 8)
     private String currency = "USD";
@@ -111,6 +120,30 @@ public class User {
 
     public void setIsActive(Boolean active) {
         isActive = active;
+    }
+
+    public String getEmailVerificationToken() {
+        return emailVerificationToken;
+    }
+
+    public void setEmailVerificationToken(String emailVerificationToken) {
+        this.emailVerificationToken = emailVerificationToken;
+    }
+
+    public LocalDateTime getEmailVerificationExpiresAt() {
+        return emailVerificationExpiresAt;
+    }
+
+    public void setEmailVerificationExpiresAt(LocalDateTime emailVerificationExpiresAt) {
+        this.emailVerificationExpiresAt = emailVerificationExpiresAt;
+    }
+
+    public LocalDateTime getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    public void setEmailVerifiedAt(LocalDateTime emailVerifiedAt) {
+        this.emailVerifiedAt = emailVerifiedAt;
     }
 
     public String getCurrency() {
