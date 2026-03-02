@@ -84,7 +84,7 @@ jobs:
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET,GEMINI_API_KEY,AWS_S3_BUCKET,AWS_S3_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,MAIL_PASSWORD
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,DB_PASSWORD,JWT_SECRET,GOOGLE_CLIENT_ID,GEMINI_API_KEY,AWS_S3_BUCKET,AWS_S3_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,MAIL_PASSWORD
           script: |
             set -e
             USERNAME="$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n' | xargs)"
@@ -113,6 +113,7 @@ jobs:
               -e SPRING_DATASOURCE_USERNAME="receipt_user" \
               -e SPRING_DATASOURCE_PASSWORD="${DB_PASSWORD}" \
               -e JWT_SECRET="${JWT_SECRET}" \
+              -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}" \
               -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
               -e AWS_S3_BUCKET="${AWS_S3_BUCKET}" \
               -e AWS_S3_REGION="${AWS_S3_REGION}" \
@@ -125,6 +126,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_S3_REGION: ${{ secrets.AWS_S3_REGION }}

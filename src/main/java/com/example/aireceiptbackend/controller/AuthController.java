@@ -2,6 +2,7 @@ package com.example.aireceiptbackend.controller;
 
 import com.example.aireceiptbackend.model.AuthRequest;
 import com.example.aireceiptbackend.model.AuthResponse;
+import com.example.aireceiptbackend.model.GoogleLoginRequest;
 import com.example.aireceiptbackend.model.RegisterResponse;
 import com.example.aireceiptbackend.service.AuthService;
 import org.slf4j.Logger;
@@ -64,6 +65,15 @@ public class AuthController {
             return ResponseEntity.status(500)
                 .body(new RegisterResponse(false, "Registration failed when sending activation email"));
         }
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest req) {
+        String token = authService.googleLogin(req.getIdToken());
+        if (token == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(new AuthResponse(token));
     }
 
     @GetMapping("/activate")
