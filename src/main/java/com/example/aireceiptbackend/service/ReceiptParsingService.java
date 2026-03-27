@@ -1,5 +1,6 @@
 package com.example.aireceiptbackend.service;
 
+import com.example.aireceiptbackend.exception.DailyReceiptLimitExceededException;
 import com.example.aireceiptbackend.model.*;
 import com.example.aireceiptbackend.repository.ImageAssetRepository;
 import com.example.aireceiptbackend.repository.ReceiptRepository;
@@ -52,6 +53,8 @@ public class ReceiptParsingService {
     private final String apiBase;
     private final String model;
     private final String bucket;
+    private final int dailyLimitFree;
+    private final int dailyLimitPro;
 
     public ReceiptParsingService(
         RestTemplate restTemplate,
@@ -63,7 +66,9 @@ public class ReceiptParsingService {
         @Value("${gemini.api-key:}") String apiKey,
         @Value("${gemini.api-base:https://generativelanguage.googleapis.com}") String apiBase,
         @Value("${gemini.model:gemini-2.5-flash}") String model,
-        @Value("${aws.s3.bucket}") String bucket
+        @Value("${aws.s3.bucket}") String bucket,
+        @Value("${app.receipt.daily-limit-free:${app.receipt.daily-limit-normal:3}}") int dailyLimitFree,
+        @Value("${app.receipt.daily-limit-pro:100}") int dailyLimitPro
     ) {
         this.restTemplate = restTemplate;
         this.s3Client = s3Client;
@@ -75,6 +80,8 @@ public class ReceiptParsingService {
         this.apiBase = apiBase;
         this.model = model;
         this.bucket = bucket;
+        this.dailyLimitFree = dailyLimitFree;
+        this.dailyLimitPro = dailyLimitPro;
     }
 
     public ReceiptParseResponse parseAndSaveFromImageId(Long imageId, String principal) throws IOException {
@@ -86,6 +93,7 @@ public class ReceiptParsingService {
         }
 
         User user = resolveUser(principal);
+        enforceDailyScanLimit(user);
         ImageAsset imageAsset = imageAssetRepository.findByIdAndUser(imageId, user)
             .orElseThrow(() -> new IllegalArgumentException("Image not found"));
 
@@ -662,5 +670,40 @@ public class ReceiptParsingService {
 
     private String buildStorageUrl(String objectKey) {
         return "s3://" + bucket + "/" + objectKey;
+    }
+
+    private void enforceDailyScanLimit(User user) {
+        int dailyLimit = resolveDailyLimit(user);
+        if (dailyLimit < 0) {
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime start = today.atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+
+        long countToday = receiptRepository.countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(user, start, end);
+        if (countToday >= dailyLimit) {
+            throw new DailyReceiptLimitExceededException(
+                String.format("Daily receipt scan limit reached (%d scans/day)", dailyLimit)
+            );
+        }
+    }
+
+    private int resolveDailyLimit(User user) {
+        if (isProUser(user)) {
+            return dailyLimitPro;
+        }
+        return dailyLimitFree;
+    }
+
+    private boolean isProUser(User user) {
+        String plan = trimToNull(user.getPlan());
+        if ("PRO".equalsIgnoreCase(plan)) {
+            return true;
+        }
+
+        String accountType = trimToNull(user.getAccountType());
+        return "PRO".equalsIgnoreCase(accountType) || "PREMIUM".equalsIgnoreCase(accountType);
     }
 }

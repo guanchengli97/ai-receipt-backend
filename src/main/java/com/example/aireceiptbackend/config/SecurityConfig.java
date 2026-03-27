@@ -21,7 +21,16 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and()
             .authorizeRequests()
-                .antMatchers("/", "/api/health", "/auth/**", "/actuator/**", "/api/receipts/parse", "/receipts/parse").permitAll()
+                .antMatchers(
+                    "/",
+                    "/api/health",
+                    "/auth/**",
+                    "/actuator/**",
+                    "/api/receipts/parse",
+                    "/receipts/parse",
+                    "/api/billing/webhook",
+                    "/billing/webhook"
+                ).permitAll()
                 .anyRequest().authenticated()
             .and()
                 .httpBasic().disable();

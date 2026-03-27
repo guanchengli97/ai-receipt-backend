@@ -41,6 +41,24 @@ public class User {
     @Column(name = "currency", nullable = false, length = 8)
     private String currency = "USD";
 
+    @Column(name = "account_type", nullable = false, length = 16)
+    private String accountType = "NORMAL";
+
+    @Column(name = "plan", length = 16)
+    private String plan = "FREE";
+
+    @Column(name = "stripe_customer_id", length = 64, unique = true)
+    private String stripeCustomerId;
+
+    @Column(name = "stripe_subscription_id", length = 64, unique = true)
+    private String stripeSubscriptionId;
+
+    @Column(name = "subscription_status", length = 32)
+    private String subscriptionStatus;
+
+    @Column(name = "subscription_current_period_end")
+    private LocalDateTime subscriptionCurrentPeriodEnd;
+
     public User() {}
 
     public User(String username, String email, String password) {
@@ -57,6 +75,12 @@ public class User {
         updatedAt = LocalDateTime.now();
         if (currency == null || currency.trim().isEmpty()) {
             currency = "USD";
+        }
+        if (accountType == null || accountType.trim().isEmpty()) {
+            accountType = "NORMAL";
+        }
+        if (plan == null || plan.trim().isEmpty()) {
+            plan = "FREE";
         }
     }
 
@@ -152,5 +176,53 @@ public class User {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+        this.accountType = accountType;
+    }
+
+    public String getPlan() {
+        return plan;
+    }
+
+    public void setPlan(String plan) {
+        this.plan = plan;
+    }
+
+    public String getStripeCustomerId() {
+        return stripeCustomerId;
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
+
+    public String getStripeSubscriptionId() {
+        return stripeSubscriptionId;
+    }
+
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+    }
+
+    public String getSubscriptionStatus() {
+        return subscriptionStatus;
+    }
+
+    public void setSubscriptionStatus(String subscriptionStatus) {
+        this.subscriptionStatus = subscriptionStatus;
+    }
+
+    public LocalDateTime getSubscriptionCurrentPeriodEnd() {
+        return subscriptionCurrentPeriodEnd;
+    }
+
+    public void setSubscriptionCurrentPeriodEnd(LocalDateTime subscriptionCurrentPeriodEnd) {
+        this.subscriptionCurrentPeriodEnd = subscriptionCurrentPeriodEnd;
     }
 }

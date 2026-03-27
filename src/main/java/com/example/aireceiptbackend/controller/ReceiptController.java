@@ -1,5 +1,6 @@
 package com.example.aireceiptbackend.controller;
 
+import com.example.aireceiptbackend.exception.DailyReceiptLimitExceededException;
 import com.example.aireceiptbackend.model.ReceiptDeleteRequest;
 import com.example.aireceiptbackend.model.ReceiptDeleteResponse;
 import com.example.aireceiptbackend.model.ReceiptParseResponse;
@@ -125,6 +126,8 @@ public class ReceiptController {
                 authentication.getName()
             );
             return ResponseEntity.ok(response);
+        } catch (DailyReceiptLimitExceededException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error(ex.getMessage()));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(error(ex.getMessage()));
         } catch (IllegalStateException ex) {

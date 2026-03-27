@@ -42,6 +42,16 @@ app:
     activation-token-expire-hours: 24
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
+  receipt:
+    daily-limit-free: ${DAILY_RECEIPT_SCAN_LIMIT_FREE:${DAILY_RECEIPT_SCAN_LIMIT_NORMAL:3}}
+    daily-limit-pro: ${DAILY_RECEIPT_SCAN_LIMIT_PRO:10}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  price:
+    pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
+    pro-yearly: ${STRIPE_PRICE_PRO_YEARLY:}
 
 gemini:
   # api-key: {{ gemini_api_key }}
