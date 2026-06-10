@@ -8,8 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 public interface ReceiptDailyUsageRepository extends JpaRepository<ReceiptDailyUsage, Long> {
+
+    Optional<ReceiptDailyUsage> findByUserAndUsageDate(User user, LocalDate usageDate);
 
     @Modifying
     @Query(

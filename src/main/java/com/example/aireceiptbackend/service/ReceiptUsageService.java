@@ -1,6 +1,7 @@
 package com.example.aireceiptbackend.service;
 
 import com.example.aireceiptbackend.exception.DailyReceiptLimitExceededException;
+import com.example.aireceiptbackend.model.ReceiptDailyUsage;
 import com.example.aireceiptbackend.model.User;
 import com.example.aireceiptbackend.repository.ReceiptDailyUsageRepository;
 import com.example.aireceiptbackend.repository.ReceiptRepository;
@@ -45,6 +46,21 @@ public class ReceiptUsageService {
     @Transactional
     public void releaseDailyScanSlot(User user) {
         receiptDailyUsageRepository.releaseOne(user, LocalDate.now());
+    }
+
+    @Transactional
+    public long getUsedToday(User user, int dailyLimit) {
+        LocalDate today = LocalDate.now();
+        if (dailyLimit < 0) {
+            return countExistingReceiptsToday(user, today);
+        }
+
+        int existingReceiptCount = countExistingReceiptsToday(user, today);
+        receiptDailyUsageRepository.ensureUsageRow(user.getId(), today, existingReceiptCount, dailyLimit);
+        return receiptDailyUsageRepository.findByUserAndUsageDate(user, today)
+            .map(ReceiptDailyUsage::getUsedCount)
+            .map(Integer::longValue)
+            .orElse((long) existingReceiptCount);
     }
 
     private int countExistingReceiptsToday(User user, LocalDate today) {

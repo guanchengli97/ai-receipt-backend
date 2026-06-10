@@ -1,7 +1,6 @@
 package com.example.aireceiptbackend.service;
 
 import com.example.aireceiptbackend.model.*;
-import com.example.aireceiptbackend.repository.ReceiptRepository;
 import com.example.aireceiptbackend.repository.StripeWebhookEventRepository;
 import com.example.aireceiptbackend.repository.UserRepository;
 import com.stripe.Stripe;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -38,7 +36,7 @@ public class StripeBillingService {
     private static final String PLAN_PRO = "PRO";
 
     private final UserRepository userRepository;
-    private final ReceiptRepository receiptRepository;
+    private final ReceiptUsageService receiptUsageService;
     private final StripeWebhookEventRepository stripeWebhookEventRepository;
     private final String stripeSecretKey;
     private final String stripeWebhookSecret;
@@ -48,7 +46,7 @@ public class StripeBillingService {
 
     public StripeBillingService(
         UserRepository userRepository,
-        ReceiptRepository receiptRepository,
+        ReceiptUsageService receiptUsageService,
         StripeWebhookEventRepository stripeWebhookEventRepository,
         @Value("${stripe.secret-key:}") String stripeSecretKey,
         @Value("${stripe.webhook-secret:}") String stripeWebhookSecret,
@@ -58,7 +56,7 @@ public class StripeBillingService {
         @Value("${app.receipt.daily-limit-pro:100}") int dailyLimitPro
     ) {
         this.userRepository = userRepository;
-        this.receiptRepository = receiptRepository;
+        this.receiptUsageService = receiptUsageService;
         this.stripeWebhookEventRepository = stripeWebhookEventRepository;
         this.stripeSecretKey = stripeSecretKey == null ? "" : stripeSecretKey.trim();
         this.stripeWebhookSecret = stripeWebhookSecret == null ? "" : stripeWebhookSecret.trim();
@@ -158,7 +156,7 @@ public class StripeBillingService {
         return response;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public BillingUsageResponse getMyBillingUsage(String principal) {
         User user = resolveUser(principal);
         int dailyLimit = resolveDailyLimit(user);
@@ -368,10 +366,7 @@ public class StripeBillingService {
     }
 
     private long countUsedToday(User user) {
-        LocalDate today = LocalDate.now();
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = start.plusDays(1);
-        return receiptRepository.countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(user, start, end);
+        return receiptUsageService.getUsedToday(user, resolveDailyLimit(user));
     }
 
     private int calculateRemainingToday(int dailyLimit, long usedToday) {
