@@ -120,6 +120,10 @@ jobs:
               -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
               -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               -e MAIL_PASSWORD="${MAIL_PASSWORD}" \
+              -e STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
+              -e STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}" \
+              -e STRIPE_PRICE_PRO_MONTHLY="${STRIPE_PRICE_PRO_MONTHLY}" \
+              -e STRIPE_PRICE_PRO_YEARLY="${STRIPE_PRICE_PRO_YEARLY}" \
               "$IMAGE"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
