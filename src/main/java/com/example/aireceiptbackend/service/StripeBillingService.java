@@ -15,6 +15,8 @@ import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,8 @@ import java.util.Set;
 
 @Service
 public class StripeBillingService {
+
+    private static final Logger log = LoggerFactory.getLogger(StripeBillingService.class);
 
     private static final String PLAN_FREE = "FREE";
     private static final String PLAN_PRO = "PRO";
@@ -195,14 +199,30 @@ public class StripeBillingService {
             return;
         }
 
-        StripeObject stripeObject = event.getDataObjectDeserializer().getObject().orElse(null);
+        StripeObject stripeObject = deserializeStripeObject(event);
         if (stripeObject != null) {
             processStripeEvent(event.getType(), stripeObject);
+        } else {
+            log.warn("Skipping Stripe webhook event {} ({}) because data.object could not be deserialized", eventId, event.getType());
         }
 
         stripeWebhookEventRepository.save(
             new StripeWebhookEvent(eventId, trimToNull(event.getType()) != null ? event.getType() : "unknown", LocalDateTime.now())
         );
+    }
+
+    private StripeObject deserializeStripeObject(Event event) {
+        Optional<StripeObject> stripeObject = event.getDataObjectDeserializer().getObject();
+        if (stripeObject.isPresent()) {
+            return stripeObject.get();
+        }
+
+        try {
+            return event.getDataObjectDeserializer().deserializeUnsafe();
+        } catch (Exception ex) {
+            log.warn("Failed to deserialize Stripe webhook event {} ({})", event.getId(), event.getType(), ex);
+            return null;
+        }
     }
 
     private void processStripeEvent(String eventType, StripeObject stripeObject) {
@@ -254,6 +274,7 @@ public class StripeBillingService {
             }
         }
         if (userOpt.isEmpty()) {
+            log.warn("Stripe checkout session {} could not be matched to a local user", session.getId());
             return;
         }
 
@@ -262,6 +283,7 @@ public class StripeBillingService {
         if (subscriptionId != null) {
             user.setStripeSubscriptionId(subscriptionId);
             syncUserFromStripeSubscriptionId(user, subscriptionId);
+            log.info("Synced Stripe checkout session {} to user {}", session.getId(), user.getId());
         } else {
             userRepository.save(user);
         }
@@ -275,6 +297,7 @@ public class StripeBillingService {
 
         Optional<User> userOpt = userRepository.findByStripeSubscriptionId(subscriptionId);
         if (userOpt.isEmpty()) {
+            log.warn("Stripe invoice {} references unknown subscription {}", invoice.getId(), subscriptionId);
             return;
         }
         syncUserFromStripeSubscriptionId(userOpt.get(), subscriptionId);
@@ -295,6 +318,7 @@ public class StripeBillingService {
             userOpt = userRepository.findByStripeCustomerId(customerId);
         }
         if (userOpt.isEmpty()) {
+            log.warn("Stripe subscription {} for customer {} could not be matched to a local user", subscriptionId, customerId);
             return;
         }
 
@@ -303,6 +327,7 @@ public class StripeBillingService {
         user.setStripeSubscriptionId(subscriptionId);
         applySubscriptionToUser(user, subscription);
         userRepository.save(user);
+        log.info("Synced Stripe subscription {} to user {}", subscriptionId, user.getId());
     }
 
     private void syncUserFromStripeSubscriptionId(User user, String subscriptionId) {
