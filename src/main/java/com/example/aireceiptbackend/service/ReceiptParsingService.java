@@ -1,6 +1,5 @@
 package com.example.aireceiptbackend.service;
 
-import com.example.aireceiptbackend.exception.DailyReceiptLimitExceededException;
 import com.example.aireceiptbackend.model.*;
 import com.example.aireceiptbackend.repository.ImageAssetRepository;
 import com.example.aireceiptbackend.repository.ReceiptRepository;
@@ -49,6 +48,7 @@ public class ReceiptParsingService {
     private final UserRepository userRepository;
     private final ImageAssetRepository imageAssetRepository;
     private final ReceiptRepository receiptRepository;
+    private final ReceiptUsageService receiptUsageService;
     private final String apiKey;
     private final String apiBase;
     private final String model;
@@ -63,6 +63,7 @@ public class ReceiptParsingService {
         UserRepository userRepository,
         ImageAssetRepository imageAssetRepository,
         ReceiptRepository receiptRepository,
+        ReceiptUsageService receiptUsageService,
         @Value("${gemini.api-key:}") String apiKey,
         @Value("${gemini.api-base:https://generativelanguage.googleapis.com}") String apiBase,
         @Value("${gemini.model:gemini-2.5-flash}") String model,
@@ -76,6 +77,7 @@ public class ReceiptParsingService {
         this.userRepository = userRepository;
         this.imageAssetRepository = imageAssetRepository;
         this.receiptRepository = receiptRepository;
+        this.receiptUsageService = receiptUsageService;
         this.apiKey = apiKey;
         this.apiBase = apiBase;
         this.model = model;
@@ -93,34 +95,36 @@ public class ReceiptParsingService {
         }
 
         User user = resolveUser(principal);
-        enforceDailyScanLimit(user);
-        ImageAsset imageAsset = imageAssetRepository.findByIdAndUser(imageId, user)
-            .orElseThrow(() -> new IllegalArgumentException("Image not found"));
-
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-            .bucket(bucket)
-            .key(imageAsset.getObjectKey())
-            .build();
-
-        byte[] imageBytes;
+        receiptUsageService.reserveDailyScanSlot(user, resolveDailyLimit(user));
+        boolean reservedScanSlot = true;
         try {
-            ResponseBytes<?> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
-            imageBytes = objectBytes.asByteArray();
-        } catch (S3Exception ex) {
-            throw new IllegalArgumentException("Failed to read image from storage");
-        }
-        if (imageBytes == null || imageBytes.length == 0) {
-            throw new IllegalArgumentException("Stored image is empty");
-        }
+            ImageAsset imageAsset = imageAssetRepository.findByIdAndUser(imageId, user)
+                .orElseThrow(() -> new IllegalArgumentException("Image not found"));
 
-        String mimeType = trimToNull(imageAsset.getContentType());
-        if (mimeType == null) {
-            mimeType = "image/jpeg";
-        }
-        String base64 = Base64.getEncoder().encodeToString(imageBytes);
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(imageAsset.getObjectKey())
+                .build();
 
-        String prompt = "Extract receipt data and return JSON only. " +
-            "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice, category(Housing, Utilities, Food, Transportation, Shopping, Health, Entertainment, Subscriptions, Travel, Education).";
+            byte[] imageBytes;
+            try {
+                ResponseBytes<?> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+                imageBytes = objectBytes.asByteArray();
+            } catch (S3Exception ex) {
+                throw new IllegalArgumentException("Failed to read image from storage");
+            }
+            if (imageBytes == null || imageBytes.length == 0) {
+                throw new IllegalArgumentException("Stored image is empty");
+            }
+
+            String mimeType = trimToNull(imageAsset.getContentType());
+            if (mimeType == null) {
+                mimeType = "image/jpeg";
+            }
+            String base64 = Base64.getEncoder().encodeToString(imageBytes);
+
+            String prompt = "Extract receipt data and return JSON only. " +
+                "Use ISO-8601 date (YYYY-MM-DD). Include items with description, quantity, unitPrice, totalPrice, category(Housing, Utilities, Food, Transportation, Shopping, Health, Entertainment, Subscriptions, Travel, Education).";
 
         // String prompt = """
         //     Extract receipt data and return ONE valid JSON object only.
@@ -153,29 +157,39 @@ public class ReceiptParsingService {
 
 
 
-        Map<String, Object> requestBody = buildRequestBody(prompt, mimeType, base64);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-goog-api-key", apiKey);
+            Map<String, Object> requestBody = buildRequestBody(prompt, mimeType, base64);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("x-goog-api-key", apiKey);
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-        String url = String.format("%s/v1beta/models/%s:generateContent", apiBase, model);
-        ResponseEntity<String> response;
-        try {
-            response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-        } catch (RestClientException ex) {
-            throw new IllegalStateException("Gemini API request failed");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            String url = String.format("%s/v1beta/models/%s:generateContent", apiBase, model);
+            ResponseEntity<String> response;
+            try {
+                response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            } catch (RestClientException ex) {
+                throw new IllegalStateException("Gemini API request failed");
+            }
+
+            ReceiptExtraction extraction = parseExtraction(response.getBody());
+            Receipt receipt = mapToReceipt(extraction, user);
+            receipt.setImageAsset(imageAsset);
+            receipt.setImageUrl(buildStorageUrl(imageAsset.getObjectKey()));
+            receipt.setIsReviewed(false);
+            receipt.setRawJson(extraction != null ? safeToJson(extraction) : null);
+            Receipt saved = receiptRepository.save(receipt);
+
+            return toResponse(saved);
+        } catch (RuntimeException | IOException ex) {
+            if (reservedScanSlot) {
+                try {
+                    receiptUsageService.releaseDailyScanSlot(user);
+                } catch (RuntimeException releaseEx) {
+                    ex.addSuppressed(releaseEx);
+                }
+            }
+            throw ex;
         }
-
-        ReceiptExtraction extraction = parseExtraction(response.getBody());
-        Receipt receipt = mapToReceipt(extraction, user);
-        receipt.setImageAsset(imageAsset);
-        receipt.setImageUrl(buildStorageUrl(imageAsset.getObjectKey()));
-        receipt.setIsReviewed(false);
-        receipt.setRawJson(extraction != null ? safeToJson(extraction) : null);
-        Receipt saved = receiptRepository.save(receipt);
-
-        return toResponse(saved);
     }
 
     public List<ReceiptParseResponse> getReceiptsByUserEmail(String email) {
@@ -670,24 +684,6 @@ public class ReceiptParsingService {
 
     private String buildStorageUrl(String objectKey) {
         return "s3://" + bucket + "/" + objectKey;
-    }
-
-    private void enforceDailyScanLimit(User user) {
-        int dailyLimit = resolveDailyLimit(user);
-        if (dailyLimit < 0) {
-            return;
-        }
-
-        LocalDate today = LocalDate.now();
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = start.plusDays(1);
-
-        long countToday = receiptRepository.countByUserAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(user, start, end);
-        if (countToday >= dailyLimit) {
-            throw new DailyReceiptLimitExceededException(
-                String.format("Daily receipt scan limit reached (%d scans/day)", dailyLimit)
-            );
-        }
     }
 
     private int resolveDailyLimit(User user) {
