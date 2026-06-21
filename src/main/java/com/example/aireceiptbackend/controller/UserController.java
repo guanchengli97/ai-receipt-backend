@@ -127,7 +127,7 @@ public class UserController {
         }
 
         if (!changed) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.ok(toProfile(user));
         }
 
         User saved = userRepository.save(user);
