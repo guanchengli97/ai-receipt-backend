@@ -152,6 +152,7 @@ public class StripeBillingService {
         response.setPlan(normalizePlan(user.getPlan()));
         response.setSubscriptionStatus(trimToNull(user.getSubscriptionStatus()));
         response.setSubscriptionCurrentPeriodEnd(user.getSubscriptionCurrentPeriodEnd());
+        response.setCancelAtPeriodEnd(Boolean.TRUE.equals(user.getSubscriptionCancelAtPeriodEnd()));
         response.setDailyLimit(resolveDailyLimit(user));
         return response;
     }
@@ -166,6 +167,7 @@ public class StripeBillingService {
         response.setPlan(normalizePlan(user.getPlan()));
         response.setSubscriptionStatus(trimToNull(user.getSubscriptionStatus()));
         response.setSubscriptionCurrentPeriodEnd(user.getSubscriptionCurrentPeriodEnd());
+        response.setCancelAtPeriodEnd(Boolean.TRUE.equals(user.getSubscriptionCancelAtPeriodEnd()));
         response.setDailyLimit(dailyLimit);
         response.setUsedToday(usedToday);
         response.setRemainingToday(calculateRemainingToday(dailyLimit, usedToday));
@@ -346,6 +348,7 @@ public class StripeBillingService {
         String status = trimToNull(subscription.getStatus());
         user.setSubscriptionStatus(status);
         user.setSubscriptionCurrentPeriodEnd(toLocalDateTime(subscription.getCurrentPeriodEnd()));
+        user.setSubscriptionCancelAtPeriodEnd(Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd()));
         if (isProSubscriptionStatus(status)) {
             user.setPlan(PLAN_PRO);
         } else {

@@ -59,6 +59,9 @@ public class User {
     @Column(name = "subscription_current_period_end")
     private LocalDateTime subscriptionCurrentPeriodEnd;
 
+    @Column(name = "subscription_cancel_at_period_end", nullable = false)
+    private Boolean subscriptionCancelAtPeriodEnd = false;
+
     public User() {}
 
     public User(String username, String email, String password) {
@@ -224,5 +227,13 @@ public class User {
 
     public void setSubscriptionCurrentPeriodEnd(LocalDateTime subscriptionCurrentPeriodEnd) {
         this.subscriptionCurrentPeriodEnd = subscriptionCurrentPeriodEnd;
+    }
+
+    public Boolean getSubscriptionCancelAtPeriodEnd() {
+        return subscriptionCancelAtPeriodEnd;
+    }
+
+    public void setSubscriptionCancelAtPeriodEnd(Boolean subscriptionCancelAtPeriodEnd) {
+        this.subscriptionCancelAtPeriodEnd = subscriptionCancelAtPeriodEnd;
     }
 }

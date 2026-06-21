@@ -6,6 +6,7 @@ public class BillingStatusResponse {
     private String plan;
     private String subscriptionStatus;
     private LocalDateTime subscriptionCurrentPeriodEnd;
+    private Boolean cancelAtPeriodEnd;
     private Integer dailyLimit;
 
     public String getPlan() {
@@ -30,6 +31,14 @@ public class BillingStatusResponse {
 
     public void setSubscriptionCurrentPeriodEnd(LocalDateTime subscriptionCurrentPeriodEnd) {
         this.subscriptionCurrentPeriodEnd = subscriptionCurrentPeriodEnd;
+    }
+
+    public Boolean getCancelAtPeriodEnd() {
+        return cancelAtPeriodEnd;
+    }
+
+    public void setCancelAtPeriodEnd(Boolean cancelAtPeriodEnd) {
+        this.cancelAtPeriodEnd = cancelAtPeriodEnd;
     }
 
     public Integer getDailyLimit() {
