@@ -1,303 +1,144 @@
-# Ansible 部署架构和流程说明
+# Ansible Architecture
 
-## 🏗️ 系统架构
+This document describes the Ansible part of the deployment architecture.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   Ansible Control Node                   │
-│              (Your Local Machine / CI/CD Server)         │
-│                                                           │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  Ansible Playbook (deploy.yml)                   │   │
-│  │  ├── roles/mysql/tasks/main.yml                  │   │
-│  │  └── roles/java-app/tasks/main.yml               │   │
-│  └──────────────────────────────────────────────────┘   │
-│                         │                                │
-│                         │ SSH/Ansible Protocol          │
-│                         ↓                                │
-└─────────────────────────────────────────────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ↓                 ↓                 ↓
-    
-┌──────────────────────────────────────────────────────────┐
-│               Target Server(s)                           │
-│         (Ubuntu/Debian/CentOS/RHEL)                      │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  MySQL Server (Port 3306)                       │   │
-│  │  ├── ai_receipt_db (Database)                   │   │
-│  │  └── receipt_user (Application User)            │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Java Application (Spring Boot)                 │   │
-│  │  ├── Port: 8080                                 │   │
-│  │  ├── Context: /api                              │   │
-│  │  └── Service: ai-receipt-backend                │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  systemd Services                               │   │
-│  │  ├── mysql (Auto-start)                         │   │
-│  │  └── ai-receipt-backend (Auto-start)            │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Logs & Monitoring                              │   │
-│  │  ├── /opt/ai-receipt-backend/logs/app.log      │   │
-│  │  └── journalctl -u ai-receipt-backend           │   │
-│  └─────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────┘
+## Responsibility Boundary
+
+```text
+Ansible
+  -> provision MySQL on the target host
+
+GitHub Actions + Docker
+  -> build and deploy the Spring Boot application
 ```
 
-## 📋 部署流程
+The old direct Java deployment role is no longer part of the active architecture.
 
-### 第一步：前置检查
-```
-1. 验证 Ansible 安装
-2. 检查目标服务器连接
-3. 验证 SSH 密钥或密码
-4. 收集目标服务器信息 (gather_facts)
-```
+## Control and Target Nodes
 
-### 第二步：MySQL 安装与配置
+```text
+Control node
+  -> local developer machine or CI runner
+  -> runs ansible-playbook
+  -> reads hosts.ini, vars/main.yml, vars/vault.yml
+  -> connects over SSH
 
-```
-MySQL Role 执行流程：
-├── 更新包管理器
-├── 安装 MySQL 服务器和客户端
-├── 启动 MySQL 服务
-├── 创建应用数据库 (ai_receipt_db)
-├── 创建应用用户 (receipt_user)
-├── 配置用户权限
-├── 配置 MySQL 远程访问（可选）
-└── 初始化数据库表结构
+Target node
+  -> Oracle/Linux host
+  -> runs MySQL
+  -> later runs Docker container deployed by GitHub Actions
 ```
 
-### 第三步：Java 应用部署
+## Ansible File Flow
 
-```
-Java App Role 执行流程：
-├── 创建应用用户和组
-├── 安装 Java 运行时 (OpenJDK 11)
-├── 安装 Maven 构建工具
-├── 创建应用目录
-├── 复制应用源代码
-├── 使用 Maven 编译打包
-├── 生成 application.yml 配置文件
-├── 创建 systemd 服务文件
-├── 启动应用服务
-└── 验证应用健康状态
+```text
+deploy.yml
+  -> loads vars/vault.yml
+  -> loads vars/main.yml
+  -> runs roles/mysql
+  -> imports init-database.yml
 ```
 
-## 🔄 工作流程详解
+## MySQL Role Flow
 
-### 1. 初始化阶段
-
-```yaml
-- name: Update package cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
+```text
+1. Update package cache
+2. Install MySQL packages
+3. Install Python MySQL dependencies
+4. Start and enable MySQL
+5. Create ai_receipt_db
+6. Create receipt_user
+7. Grant database privileges
+8. Configure bind address
+9. Restart MySQL when config changes
 ```
 
-**作用**：更新系统包索引，确保安装最新版本
+## Runtime Architecture After Full Deployment
 
-### 2. 安装阶段
-
-```yaml
-- name: Install MySQL server and client
-  apt:
-    name:
-      - mysql-server
-      - mysql-client
-      - python3-pymysql
-    state: present
+```text
+Oracle host
+|-- MySQL
+|   |-- service: mysql
+|   |-- port: 3306
+|   |-- database: ai_receipt_db
+|   `-- user: receipt_user
+`-- Docker
+    `-- ai-receipt-app
+        |-- image: docker.io/<docker-user>/ai-receipt-backend:latest
+        |-- host port: 7008
+        |-- container port: 8080
+        `-- database URL: jdbc:mysql://host.docker.internal:3306/ai_receipt_db
 ```
 
-**作用**：安装必要的系统包
+## Secrets Flow
 
-### 3. 配置阶段
+```text
+Ansible vault
+  vault_db_password
+    -> creates/updates MySQL receipt_user password
 
-```yaml
-- name: Create MySQL database
-  mysql_db:
-    name: "{{ db_name }}"
-    state: present
+GitHub Actions secret
+  DB_PASSWORD
+    -> passed into Docker container as SPRING_DATASOURCE_PASSWORD
 ```
 
-**作用**：创建数据库、用户，配置权限
+These values must match.
 
-### 4. 部署阶段
+## Network Flow
 
-```yaml
-- name: Build application with Maven
-  shell: |
-    cd {{ app_home }}/src
-    mvn clean package -DskipTests
+```text
+Browser/client
+  -> http://<ORACLE_HOST>:7008/api/
+Oracle host Docker port mapping
+  -> container port 8080
+Spring Boot app
+  -> host.docker.internal:3306
+MySQL on host
 ```
 
-**作用**：编译 Java 应用并生成 JAR 包
+The GitHub Actions deployment uses Docker's `host-gateway` mapping so the container can reach host MySQL through `host.docker.internal`.
 
-### 5. 服务化阶段
+## Operational Commands
 
-```yaml
-- name: Enable and start Java application service
-  systemd:
-    name: ai-receipt-backend
-    state: started
-    enabled: yes
-```
-
-**作用**：将应用注册为系统服务，开机自启
-
-### 6. 验证阶段
-
-```yaml
-- name: Verify application is running
-  uri:
-    url: "http://localhost:8080/api/health"
-    method: GET
-    status_code: 200
-```
-
-**作用**：检查应用是否成功启动
-
-## 📊 文件路径映射
-
-| 组件 | 路径 | 描述 |
-|-----|------|------|
-| MySQL | `/var/lib/mysql` | 数据存储目录 |
-| MySQL 配置 | `/etc/mysql/mysql.conf.d/mysqld.cnf` | 配置文件 |
-| MySQL 日志 | `/var/log/mysql/error.log` | 错误日志 |
-| 应用目录 | `/opt/ai-receipt-backend` | 应用安装目录 |
-| 应用 JAR | `/opt/ai-receipt-backend/ai-receipt-backend.jar` | 应用程序 |
-| 应用配置 | `/opt/ai-receipt-backend/config/application.yml` | 配置文件 |
-| 应用日志 | `/opt/ai-receipt-backend/logs/app.log` | 应用日志 |
-| systemd 服务 | `/etc/systemd/system/ai-receipt-backend.service` | 服务文件 |
-
-## 🔐 权限管理
-
-```
-┌─────────────────┬──────────────┬─────────────────┐
-│ 用户/组         │ 权限         │ 用途            │
-├─────────────────┼──────────────┼─────────────────┤
-│ mysql:mysql     │ 755          │ MySQL 数据库    │
-│ appuser:appgroup│ 755          │ Java 应用       │
-│ root:root       │ 644          │ 服务配置文件    │
-└─────────────────┴──────────────┴─────────────────┘
-```
-
-## 📈 部署时间估计
-
-| 操作 | 预计时间 |
-|-----|---------|
-| MySQL 安装与配置 | 2-3 分钟 |
-| Java 编译 | 3-5 分钟 |
-| 应用启动 | 1-2 分钟 |
-| **总计** | **6-10 分钟** |
-
-## 🔄 更新和回滚
-
-### 应用更新流程
+Check Ansible connectivity:
 
 ```bash
-# 1. 停止应用
-sudo systemctl stop ai-receipt-backend
-
-# 2. 备份当前版本
-sudo cp /opt/ai-receipt-backend/ai-receipt-backend.jar \
-        /opt/ai-receipt-backend/ai-receipt-backend-v1.0.jar
-
-# 3. 构建新版本
-mvn clean package -DskipTests
-
-# 4. 替换 JAR 文件
-sudo cp target/ai-receipt-backend-0.0.1-SNAPSHOT.jar \
-        /opt/ai-receipt-backend/ai-receipt-backend.jar
-
-# 5. 启动应用
-sudo systemctl start ai-receipt-backend
+cd ansible
+ansible -i hosts.ini all -m ping
 ```
 
-### 回滚步骤
+Run provisioning:
 
 ```bash
-# 1. 停止应用
-sudo systemctl stop ai-receipt-backend
-
-# 2. 恢复备份版本
-sudo cp /opt/ai-receipt-backend/ai-receipt-backend-v1.0.jar \
-        /opt/ai-receipt-backend/ai-receipt-backend.jar
-
-# 3. 启动应用
-sudo systemctl start ai-receipt-backend
-
-# 4. 验证
-curl http://localhost:8080/api/health
+bash deploy.sh mysql
 ```
 
-## ⚠️ 故障排查流程
+Check MySQL:
 
-```
-问题发生
-    ↓
-[Step 1] 检查连接
-  - ping 目标服务器
-  - 测试 SSH 连接
-    ↓
-[Step 2] 检查服务状态
-  - sudo systemctl status mysql
-  - sudo systemctl status ai-receipt-backend
-    ↓
-[Step 3] 查看日志
-  - 应用日志: tail -f /opt/ai-receipt-backend/logs/app.log
-  - MySQL 日志: sudo tail -f /var/log/mysql/error.log
-  - systemd 日志: journalctl -u ai-receipt-backend -f
-    ↓
-[Step 4] 检查网络和端口
-  - sudo netstat -tlnp | grep -E '3306|8080'
-  - sudo firewall-cmd --list-all
-    ↓
-[Step 5] 验证配置
-  - 检查 application.yml 配置
-  - 验证数据库凭证
-  - 检查 JWT 密钥
-    ↓
-[解决] 应用解决方案或回滚
+```bash
+ssh ubuntu@<ORACLE_HOST>
+sudo systemctl status mysql
+mysql -u receipt_user -p ai_receipt_db -e "SELECT 1;"
 ```
 
-## 🚀 性能优化建议
+Check the app container:
 
-1. **堆内存调优**
-   ```bash
-   # 在 /etc/systemd/system/ai-receipt-backend.service 中
-   ExecStart=/usr/bin/java -Xms2g -Xmx4g -XX:+UseG1GC
-   ```
+```bash
+docker ps
+docker logs -f ai-receipt-app
+curl http://localhost:7008/api/
+```
 
-2. **数据库连接池**
-   ```yaml
-   # application.yml
-   spring:
-     datasource:
-       hikari:
-         maximum-pool-size: 20
-         minimum-idle: 5
-   ```
+## Failure Points
 
-3. **MySQL 优化**
-   ```mysql
-   -- 创建必要的索引
-   CREATE INDEX idx_user_id ON receipts(user_id);
-   CREATE INDEX idx_created_at ON receipts(created_at);
-   ```
+| Area | Common failure | Diagnostic command |
+| --- | --- | --- |
+| SSH | Bad host, user, key, or port | `ansible -i hosts.ini all -m ping -vvv` |
+| Vault | Wrong vault password | `ansible-vault view vars/vault.yml` |
+| Sudo | Target user lacks privilege | `ansible-playbook ... --ask-become-pass -vvv` |
+| MySQL | Service failed or bad password | `sudo systemctl status mysql` |
+| Docker app | Missing env var or DB connection failure | `docker logs ai-receipt-app` |
 
-## 📞 支持和问题反馈
+## Design Rationale
 
-遇到问题时，请收集以下信息：
-1. Ansible 版本
-2. 目标服务器 OS 和版本
-3. 完整错误日志（使用 `-vvv` 选项）
-4. 目标服务器的系统信息
+Keeping MySQL on the host and the app in Docker separates persistent data from application releases. Ansible changes are infrequent and explicit, while application releases can be rebuilt and redeployed automatically on each push to `master`.

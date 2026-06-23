@@ -19,21 +19,21 @@ Spring Boot backend for AI Receipt, a receipt management service that supports u
 
 ```text
 .
-├── src/main/java/com/example/aireceiptbackend
-│   ├── config/        # Security, JWT filter, AWS S3, REST client config
-│   ├── controller/    # Auth, users, receipts, images, billing, health APIs
-│   ├── exception/     # Domain exceptions
-│   ├── model/         # JPA entities and request/response DTOs
-│   ├── repository/    # Spring Data repositories
-│   ├── service/       # Auth, receipt parsing, image storage, email, billing logic
-│   └── util/          # JWT utilities
-├── src/main/resources/application.yml
-├── ansible/           # MySQL provisioning for Oracle/Linux hosts
-├── .github/workflows/deploy.yml
-├── Dockerfile         # Runtime image for CI/CD builds
-├── Dockerfile.local   # Multi-stage local Docker build
-├── docker-compose.yml # Local MySQL + app stack
-└── pom.xml
+|-- src/main/java/com/example/aireceiptbackend
+|   |-- config/        # Security, JWT filter, AWS S3, REST client config
+|   |-- controller/    # Auth, users, receipts, images, billing, health APIs
+|   |-- exception/     # Domain exceptions
+|   |-- model/         # JPA entities and request/response DTOs
+|   |-- repository/    # Spring Data repositories
+|   |-- service/       # Auth, receipt parsing, image storage, email, billing logic
+|   `-- util/          # JWT utilities
+|-- src/main/resources/application.yml
+|-- ansible/           # MySQL provisioning for Oracle/Linux hosts
+|-- .github/workflows/deploy.yml
+|-- Dockerfile         # Runtime image for CI/CD builds
+|-- Dockerfile.local   # Multi-stage local Docker build
+|-- docker-compose.yml # Local MySQL + app stack
+`-- pom.xml
 ```
 
 ## Configuration

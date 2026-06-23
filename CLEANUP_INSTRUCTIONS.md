@@ -1,100 +1,66 @@
-# 清理 Ansible Java-App - 手动操作指南
+# Cleanup Instructions
 
-## ✅ 已自动删除的配置项
+This file documents cleanup tasks after removing the old Ansible `java-app` deployment path.
 
-以下配置已在文件中自动移除：
+## Expected Final State
 
-- ✅ `ansible/deploy.yml` - 移除 java-app role
-- ✅ `ansible/deploy.sh` - 移除 java-app 选项和相关逻辑
-- ✅ `ansible/deploy.ps1` - 移除 java-app 选项和相关逻辑
-- ✅ `.github/workflows/ansible-deploy.yml` - 只保留 MySQL 选项
-- ✅ 文档更新 - 移除 java-app 引用
+The `ansible/` directory should only provision MySQL and initialize database state.
 
-## ⚠️ 需要手动删除的文件夹
+```text
+ansible/
+|-- deploy.yml
+|-- deploy.sh
+|-- deploy.ps1
+|-- hosts.ini
+|-- hosts.ini.example
+|-- init-database.yml
+|-- vars/
+|   |-- main.yml
+|   `-- vault.yml
+`-- roles/
+    `-- mysql/
+        |-- tasks/
+        `-- handlers/
+```
 
-以下文件夹需要你手动删除：
+There should be no active `ansible/roles/java-app/` deployment role.
+
+## Manual Cleanup
+
+If the old role still exists, remove it:
 
 ```bash
-# Linux/Mac
+# Linux/macOS
 rm -rf ansible/roles/java-app/
 
 # Windows PowerShell
 Remove-Item -Recurse -Force ansible/roles/java-app
-
-# Windows CMD
-rmdir /s /q ansible\roles\java-app
 ```
 
-### 或者使用 VS Code
+## Verification Checklist
 
-1. 在 VS Code 中打开 `ansible/roles/` 目录
-2. 右键点击 `java-app` 文件夹
-3. 选择 **"Delete"**
-4. 确认删除
+- [ ] `ansible/roles/java-app/` is gone.
+- [ ] `ansible/deploy.yml` only includes the MySQL role and database initialization.
+- [ ] `ansible/deploy.sh` only accepts `mysql`.
+- [ ] `ansible/deploy.ps1` only accepts `mysql`.
+- [ ] Production application deployment is handled by `.github/workflows/deploy.yml`.
+- [ ] Documentation no longer tells users to deploy the Java app through Ansible/systemd.
 
-## 📋 清理检查清单
+## Current Deployment Commands
 
-- [ ] 删除 `ansible/roles/java-app/` 文件夹
-- [ ] 验证 `ansible/deploy.yml` 只包含 mysql role
-- [ ] 验证 `ansible/deploy.sh` 只接受 mysql 参数
-- [ ] 验证 `ansible/deploy.ps1` 只接受 mysql 参数
-- [ ] 验证 `.github/workflows/ansible-deploy.yml` 只有 mysql 选项
-- [ ] 测试本地部署：`bash ansible/deploy.sh`
-- [ ] 提交更改：`git add . && git commit -m "Remove Ansible java-app redundancy"`
+Provision MySQL:
 
-## 🎯 最终状态
-
-删除完成后，你的项目结构应该是：
-
-```
-ansible/
-├── deploy.yml              ← 只有 mysql role
-├── deploy.sh              ← 只接受 mysql 参数
-├── deploy.ps1             ← 只接受 mysql 参数
-├── hosts.ini
-├── init-database.yml
-├── vars/
-│   ├── main.yml
-│   └── vault.yml
-└── roles/
-    └── mysql/             ← 只有 mysql
-        ├── tasks/
-        │   └── main.yml
-        └── templates/
+```bash
+cd ansible
+bash deploy.sh mysql
 ```
 
-不再有 `roles/java-app/` 目录。
+Deploy the app:
 
-## ✨ 部署流程确认
-
-现在的部署方式：
-
-```
-┌─────────────────────────────────────┐
-│ Ansible: 部署 MySQL                 │
-│ 命令: bash ansible/deploy.sh        │
-│ 位置: 你的电脑或 GitHub Actions    │
-└─────────────────────────────────────┘
-                ↓
-┌─────────────────────────────────────┐
-│ GitHub Workflows: 部署 Docker 应用  │
-│ 触发: git push origin master         │
-│ 位置: GitHub 服务器                 │
-└─────────────────────────────────────┘
-                ↓
-┌─────────────────────────────────────┐
-│ Oracle 服务器: 运行应用             │
-│ MySQL: 运行在主机上                 │
-│ Docker: 运行在容器中                │
-└─────────────────────────────────────┘
+```bash
+git push origin master
 ```
 
-## 🚀 下一步
+## Notes
 
-1. 删除 `ansible/roles/java-app/` 文件夹
-2. 提交更改到 Git
-3. 准备部署！
-
----
-
-**清理完成后，项目会更加清晰和易于维护！** ✨
+The cleanup keeps the production model simple: host-level MySQL managed by Ansible, application runtime managed by Docker.

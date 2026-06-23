@@ -1,89 +1,50 @@
-# Ansible Java-App 已移除说明
+# Ansible Java-App Cleanup Notes
 
-## 📝 变更说明
+The old Ansible `java-app` deployment path has been removed from the intended architecture.
 
-已删除 Ansible 中的 `java-app` 角色和相关部署配置。
+## Current Deployment Split
 
-### 原因
-
-你的项目采用的是 **Docker 容器化部署方案**：
-
-```
-GitHub Workflows deploy.yml
-    ↓
-编译 Java 代码
-    ↓
-打包 Docker 镜像
-    ↓
-推送到 Docker Hub
-    ↓
-SSH 启动 Docker 容器（在 Oracle 服务器上）
+```text
+MySQL provisioning -> Ansible
+Application deploy -> Docker + GitHub Actions
 ```
 
-因此，**Ansible 的 java-app 角色是多余的**，会造成混淆。
+Ansible should only prepare the database layer. The Spring Boot application is built into a Docker image and deployed by `.github/workflows/deploy.yml`.
 
-### 已删除的内容
+## Removed or Deprecated Items
 
-❌ **已删除：**
-- `ansible/roles/java-app/` - 整个目录
-- `ansible/deploy.yml` 中的 java-app role 配置
-- `ansible/deploy.sh` 中的 java-app 选项
-- `ansible/deploy.ps1` 中的 java-app 选项
-- `.github/workflows/ansible-deploy.yml` 中的 java-app 选项
+- `ansible/roles/java-app/`
+- `java-app` deployment options in Ansible helper scripts
+- Java application deployment through systemd
+- Documentation that instructed Ansible to build or run the Spring Boot JAR directly
 
-✅ **保留：**
-- `ansible/roles/mysql/` - MySQL 部署（需要）
-- `ansible/deploy.yml` - Ansible 主文件（只部署 MySQL）
-- `ansible/deploy.sh` - Shell 脚本（只部署 MySQL）
-- `ansible/deploy.ps1` - PowerShell 脚本（只部署 MySQL）
-- `.github/workflows/ansible-deploy.yml` - GitHub Actions（只部署 MySQL）
+## Retained Items
 
-### 现在的部署流程
+- `ansible/deploy.yml`
+- `ansible/deploy.sh`
+- `ansible/deploy.ps1`
+- `ansible/init-database.yml`
+- `ansible/roles/mysql/`
+- `ansible/vars/main.yml`
+- `ansible/vars/vault.yml`
 
-```
-1️⃣ 初始化：Ansible 部署 MySQL
-   bash ansible/deploy.sh
-   
-   或
-   
-   GitHub Actions 按钮
-   → Deploy Ansible MySQL → Run workflow
+## Current Flow
 
-2️⃣ 应用部署：GitHub Workflows 部署 Docker 容器
-   git push origin master
-   → GitHub Actions 自动触发 deploy.yml
-   → 构建 + 推送镜像
-   → 启动 Docker 容器（连接到 MySQL）
-```
+1. Provision MySQL:
 
-### 使用示例
-
-**部署 MySQL：**
 ```bash
 cd ansible
-bash deploy.sh
+bash deploy.sh mysql
 ```
 
-**部署应用（自动触发）：**
+2. Deploy the app:
+
 ```bash
 git push origin master
-# GitHub Actions 自动执行
 ```
 
-### 相关文档更新
+GitHub Actions builds and deploys the Docker container.
 
-已更新以下文档，移除了对 java-app 的引用：
-- `ORACLE_QUICK_REFERENCE.md`
-- `ORACLE_DEPLOYMENT.md`
-- `ansible/DEPLOY_GUIDE.md`
+## Recovery
 
-### 如果需要恢复
-
-如果以后需要使用 Ansible 部署 Java 应用（不用 Docker），可以从 Git 历史记录恢复。
-
----
-
-**现在项目架构清晰简洁：**
-- ✅ MySQL 部署 → Ansible
-- ✅ 应用部署 → Docker + GitHub Workflows
-- ❌ 无重复、无混淆
+If direct Ansible Java deployment is needed again later, recover the old `java-app` role from Git history and update the documentation, scripts, and workflows together. Do not mix both deployment paths without an explicit reason.
